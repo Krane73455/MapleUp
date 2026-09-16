@@ -33,7 +33,21 @@
           "date": "09/17",
           "value": 20800000
         }
-      ]
+      ],
+      "nexon": {
+        "ocid": "example-ocid",
+        "syncedAt": "2026-09-17T00:00:00.000Z",
+        "source": "NEXON Open API - MapleStoryTaiwan",
+        "characterImage": "https://open.api.nexon.com/static/maplestorytw/character/look/example",
+        "worldName": "示範伺服器",
+        "guildName": "示範公會",
+        "name": "示範暗夜行者",
+        "job": "暗夜行者",
+        "level": 280,
+        "combatPower": 20800000,
+        "stats": [{"name": "戰鬥力", "value": "20800000"}],
+        "equipment": [{"slot": "武器", "name": "示範武器", "starforce": "22", "potentialGrade": "傳說", "additionalPotentialGrade": "罕見"}]
+      }
     }
   ],
   "crystalWeeks": [

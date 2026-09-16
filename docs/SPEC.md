@@ -11,7 +11,7 @@
 - 強化總覽：待強化、待測試、已停手數量、強化排序、最高戰力摘要、結晶收入摘要。
 - 角色管理：角色列表；單一角色分為總覽、能力面板、裝備分析、戰力紀錄。
 - 結晶收入：全域新增、編輯、刪除及勾選逐角色／逐 Boss 紀錄；可切換週期，分開呈現已完成收入、預估收入與當月收入。
-- 設定：停手規則說明、API 狀態、本機示範資料重置。
+- 設定：停手規則說明、NEXON API Key 與全部同步、本機資料備份及示範資料重置。
 - 手機版採底部四項導航。
 
 ## 判定規則
@@ -29,31 +29,30 @@
 
 使用 localStorage，鍵名為 mapleup-v1。資料分為 characters、crystalWeeks、settings；範例見 ../data/schema-example.json，此檔是示例資料，不是 JSON Schema。
 
-角色包含 id、name、job、level、currentPower、maxPower、targetBoss、bestTime、notes、stats、equipment、powerHistory。
+角色包含 id、name、job、level、currentPower、maxPower、targetBoss、bestTime、notes、stats、equipment、powerHistory，以及同步後才會出現的 nexon 快照。
 - currentPower 保存目前戰力，maxPower 獨立保存歷史最高戰力。
 - powerHistory 保存每筆日期及戰力值；目前原型日期採 MM/DD。
 - 新增角色時，以輸入戰力初始化目前與最高戰力，非零時新增歷史紀錄。
-- 未來同步時，最高戰力只在新值更高時更新，歷史紀錄保留下降的數值。
+- NEXON 同步會更新角色名稱、職業、等級及目前戰力；最高戰力只在新值更高時更新，歷史紀錄保留下降的數值。
+- nexon 保存最近同步時間、角色圖、伺服器、API 能力值及目前裝備。手動 stats、equipment、Boss、備註、結晶與舊戰力紀錄不會被覆蓋。
 - equipment 為部位、評等及備註的示範分析。
 - crystalWeeks 保存紀錄 id、週期起始日／顯示區間、角色 id／名稱、Boss、收入、完成狀態及備註。v0.1 舊資料自動補上識別碼、週期起始日並以「未分類」保留，原金額與完成狀態不變。
 - settings.stopUnderMinutes 預設為 30。
 
 ## v0.1 已實作
 
-靜態 HTML/CSS/JavaScript，無建置步驟。提供示範資料、頁面切換、角色新增、編輯與刪除、戰力更新與最高戰力保留、角色四分頁、戰力長條圖及歷史表、角色級別收入表。
+靜態 HTML/CSS/JavaScript，無建置步驟。提供示範資料、頁面切換、角色新增、編輯與刪除、戰力更新與最高戰力保留、角色四分頁、戰力長條圖及歷史表、逐 Boss 收入表與 NEXON Open API 手動同步。
 
 本機資料支援 JSON 匯出、匯入預覽、確認還原，以及匯入、刪除和重置前的單份復原備份。匯入時驗證必要資料結構；無效資料不會覆蓋目前資料。刪除角色不刪除既有結晶收入。
 
 ## 原型限制與後續工作
 
-- NEXON API 尚未串接；目前只有狀態與架構說明，沒有同步或排程功能。
+- NEXON API 已支援手動逐隻或全部同步；尚無後端排程與跨裝置 Key 管理。
 - 裝備分析為示範資料，尚未套用完整健檢規則。
 - 戰力圖目前為長條圖，時間篩選與正式曲線尚待實作。
 - 結晶金額目前仍為手動輸入；Boss 價格目錄、自動計價、隊伍分配及每週／每世界上限提醒尚待實作。
 - 停手門檻目前僅顯示，尚無介面可修改。
-- Excel 匯入、搜尋、結晶編輯與裝備編輯尚待實作。
-- 時間解析目前僅驗證數字及冒號格式，尚未限制秒數為 00–59。
-- 角色文字直接插入 HTML，正式使用前應加入安全的文字呈現與輸入驗證。
+- Excel 匯入、搜尋與手動裝備編輯尚待實作。
 - 正式版規劃 React + TypeScript、serverless 後端及資料庫；API 金鑰應由後端管理。
 
 ## 基本驗收目標

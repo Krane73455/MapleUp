@@ -52,6 +52,7 @@ button{cursor:pointer}
   display:flex;gap:10px;align-items:center;background:#101827;
 }
 .status-dot{width:10px;height:10px;border-radius:50%;background:#64748b}
+.status-dot.connected{background:var(--good);box-shadow:0 0 10px rgba(34,197,94,.65)}
 .sync-card strong,.sync-card small{display:block}.sync-card small{color:var(--muted);margin-top:2px}
 .main{padding:30px;min-width:0}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px;gap:16px}
@@ -140,4 +141,7 @@ dialog{max-height:90dvh;overflow:auto;padding:0}
 #formError,#importError{color:#fca5a5}
 .name-cell,.character-card,.stat-item,.equipment-item{overflow-wrap:anywhere;min-width:0}
 button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.api-key-label{display:grid;gap:7px;color:#cbd5e1;font-size:13px}.api-key-label input{width:100%;background:#0b1220;color:white;border:1px solid #334155;border-radius:10px;padding:11px}
+.api-actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.api-credit{font-size:12px;color:var(--muted);margin:12px 0 0}.api-credit a{color:#7dd3fc}
+.nexon-character{display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:14px 18px;background:#101827;border:1px solid var(--line);border-radius:var(--radius)}.nexon-character img{width:72px;height:72px;object-fit:contain}.nexon-character strong,.nexon-character small{display:block}.nexon-character small{color:var(--muted);margin-top:5px}
 @media(max-width:760px){.character-actions button,.backup-actions button,.crystal-toolbar,.crystal-toolbar button,.crystal-toolbar label{flex:1 1 100%}.crystal-head{align-items:stretch}.table-wrap{margin-inline:-8px}}

@@ -1,5 +1,6 @@
 
 const STORE_KEY = "mapleup-v1";
+const NEXON_KEY = "mapleup-nexon-api-key";
 
 const sampleData = {
   characters: [
@@ -84,6 +85,18 @@ let currentView = "dashboard";
 let currentCharacterId = null;
 let characterTab = "overview";
 let selectedCrystalWeek = weekStartISO(new Date());
+
+function savedApiKey(){
+  try { return localStorage.getItem(NEXON_KEY) || ""; } catch { return ""; }
+}
+function updateSyncCard(){
+  const small=document.querySelector('.sync-card small');
+  const dot=document.querySelector('.status-dot');
+  if(!small || !dot) return;
+  const ready=Boolean(savedApiKey());
+  small.textContent=ready?'API Key 已設定':'尚未設定 Key';
+  dot.classList.toggle('connected',ready);
+}
 
 const view = document.querySelector("#view");
 const pageTitle = document.querySelector("#pageTitle");
@@ -249,11 +262,12 @@ function renderCharacterDetail(){
     ["overview","📊 總覽"],["stats","📋 能力面板"],["equipment","🛡️ 裝備分析"],["power","📈 戰力紀錄"]
   ];
   view.innerHTML = `
-    <div class="character-actions"><button id="editCharacter" class="primary-btn">編輯角色／更新戰力</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
+    <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色／更新戰力</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
     <div class="tabs">${tabs.map(([k,l])=>`<button class="tab-btn ${characterTab===k?"active":""}" data-tab="${esc(k)}">${l}</button>`).join("")}</div>
     <div id="characterTab"></div>`;
   document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>{characterTab=b.dataset.tab;renderCharacterDetail()});
   document.querySelector('#editCharacter').onclick=()=>openCharacter(c);
+  document.querySelector('#syncCharacter').onclick=event=>syncOneCharacter(c.id,event.currentTarget);
   document.querySelector('#deleteCharacter').onclick=()=>{
     if(!confirm('刪除「'+c.name+'」及其戰力紀錄？既有結晶收入會保留。刪除前會保存一份本機復原備份。')) return;
     try {
@@ -269,6 +283,7 @@ function renderCharacterTab(c){
   const host = document.querySelector("#characterTab");
   if(characterTab==="overview"){
     host.innerHTML = `
+    ${c.nexon?.characterImage ? `<div class="nexon-character"><img src="${esc(c.nexon.characterImage)}" alt="${esc(c.name)} 角色圖片" /><div><strong>${esc(c.name)} · ${esc(c.job)} Lv.${c.level}</strong><small>最近同步：${esc(formatSyncTime(c.nexon.syncedAt))}${c.nexon.worldName?` · ${esc(c.nexon.worldName)}`:''}</small></div></div>`:''}
     <div class="grid metrics">
       <div class="metric"><small>🏆 歷史最高</small><strong>${fmtPower(c.maxPower)}</strong></div>
       <div class="metric"><small>⚔️ 目前戰力</small><strong>${fmtPower(c.currentPower)}</strong></div>
@@ -283,19 +298,21 @@ function renderCharacterTab(c){
     </div>`;
   }
   if(characterTab==="stats"){
-    host.innerHTML = `<div class="panel"><div class="panel-head"><div><h3>📋 能力面板</h3><p>只顯示角色數值，不在這裡做裝備強化判斷。</p></div></div>
+    const apiStats=c.nexon?.stats || [];
+    host.innerHTML = `${apiStats.length?`<div class="panel"><div class="panel-head"><div><h3>🔄 NEXON 能力值</h3><p>${esc(formatSyncTime(c.nexon.syncedAt))} 同步；資料來自 NEXON Open API。</p></div></div><div class="stat-list">${apiStats.map(row=>`<div class="stat-item"><span>${esc(row.name)}</span><strong>${esc(row.value)}</strong></div>`).join('')}</div></div>`:''}<div class="panel"><div class="panel-head"><div><h3>📋 手動能力面板</h3><p>原本的手動資料會保留，不會被 API 覆蓋。</p></div></div>
       <div class="stat-list">
         <div class="stat-item"><span>戰鬥力</span><strong>${c.currentPower.toLocaleString()}</strong></div>
         ${Object.entries(c.stats||{}).map(([k,v])=>`<div class="stat-item"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join("")}
       </div></div>`;
   }
   if(characterTab==="equipment"){
-    host.innerHTML = `<div class="panel"><div class="panel-head"><div><h3>🛡️ 裝備分析</h3><p>這裡只處理裝備與強化優先順序。</p></div></div>
+    const apiEquipment=c.nexon?.equipment || [];
+    host.innerHTML = `${apiEquipment.length?`<div class="panel"><div class="panel-head"><div><h3>🔄 NEXON 目前裝備</h3><p>API 同步結果只供檢視，不會改寫下方的手動分析。</p></div></div><div class="equipment-list">${apiEquipment.map(item=>`<div class="equipment-item"><div><strong>${esc(item.slot || '裝備')}</strong><div class="muted">${esc(item.name || '—')}</div></div><span>${esc(equipmentLabel(item))}</span></div>`).join('')}</div></div>`:''}<div class="panel"><div class="panel-head"><div><h3>🛡️ 手動裝備分析</h3><p>這裡處理你自己的強化優先順序。</p></div></div>
       ${c.equipment?.length ? `<div class="equipment-list">${c.equipment.map(e=>`<div class="equipment-item"><div><strong>${esc(e.slot)}</strong><div class="muted">${esc(e.note)}</div></div><span>${esc(e.grade)}</span></div>`).join("")}</div>` : `<div class="empty">尚未建立裝備分析資料。</div>`}
     </div>`;
   }
   if(characterTab==="power"){
-    host.innerHTML = `<div class="panel"><div class="panel-head"><div><h3>📈 戰力紀錄</h3><p>目前戰力與最高戰力分開保存，未來 NEXON API 同步會寫入這裡。</p></div></div>
+    host.innerHTML = `<div class="panel"><div class="panel-head"><div><h3>📈 戰力紀錄</h3><p>目前戰力與最高戰力分開保存；NEXON 同步若有變動會新增紀錄。</p></div></div>
       ${powerChart(c)}
       <table><thead><tr><th>日期</th><th>戰力</th><th>是否最高</th></tr></thead><tbody>
       ${(c.powerHistory||[]).slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${x.value.toLocaleString()}</td><td>${x.value===c.maxPower?"🏆":""}</td></tr>`).join("")}
@@ -371,8 +388,11 @@ function renderSettings(){
     <div class="panel"><div class="panel-head"><div><h3>🎯 停手規則</h3><p>嚴格小於 30:00 才算達標。</p></div></div>
       <div class="stat-item"><span>通關時間門檻</span><strong>&lt; ${data.settings.stopUnderMinutes}:00</strong></div>
     </div>
-    <div class="panel"><div class="panel-head"><div><h3>🔄 NEXON API</h3><p>第一版先預留接口，API Key 不會放在前端。</p></div></div>
-      <div class="callout"><strong>尚未連線</strong><p class="muted">正式版建議由後端排程抓取，保存目前戰力、最高戰力與歷史快照。</p></div>
+    <div class="panel"><div class="panel-head"><div><h3>🔄 NEXON API</h3><p>輸入一次後即可同步角色資料。</p></div></div>
+      <label class="api-key-label">API Key<input id="nexonApiKey" type="password" autocomplete="off" placeholder="貼上 NEXON Open API Key" /></label>
+      <div class="api-actions"><button id="saveApiKey" class="primary-btn">儲存 Key</button><button id="clearApiKey" class="ghost-btn">清除 Key</button><button id="syncAllCharacters" class="ghost-btn" ${data.characters.length?'':'disabled'}>同步全部角色</button></div>
+      <div id="apiStatus" class="callout"><strong>${savedApiKey()?'已設定，可以同步':'尚未設定'}</strong><p class="muted">Key 只保存在這個瀏覽器，不會寫進 GitHub，也不會包含在 JSON 備份。</p></div>
+      <p class="api-credit">Data based on NEXON Open API · <a href="https://openapi.nexon.com/" target="_blank" rel="noopener">申請／查看 API Key</a></p>
     </div>
   </div>
   <div class="panel"><div class="panel-head"><div><h3>🛟 本機資料</h3><p>資料儲存在目前瀏覽器，不會自動跨裝置同步。請定期匯出 JSON 備份。</p></div></div>
@@ -414,6 +434,59 @@ function renderSettings(){
     if(!confirm('確定將目前全部資料替換為示範資料？操作前會保留一份本機復原備份。'))return;
     try {commitData(sampleData,{recovery:true});render();notify('已重置為示範資料。');}catch(error){notify(error.message);}
   };
+  const keyInput=document.querySelector('#nexonApiKey');
+  keyInput.value=savedApiKey();
+  document.querySelector('#saveApiKey').onclick=()=>{
+    const key=keyInput.value.trim();
+    if(!key){notify('請先貼上 NEXON API Key。');return;}
+    try { localStorage.setItem(NEXON_KEY,key);updateSyncCard();document.querySelector('#apiStatus strong').textContent='已設定，可以同步';notify('API Key 已保存在這個瀏覽器。'); }
+    catch { notify('瀏覽器無法儲存 API Key。'); }
+  };
+  document.querySelector('#clearApiKey').onclick=()=>{
+    try { localStorage.removeItem(NEXON_KEY);keyInput.value='';updateSyncCard();document.querySelector('#apiStatus strong').textContent='尚未設定';notify('API Key 已從這個瀏覽器清除。'); }
+    catch { notify('無法清除 API Key。'); }
+  };
+  document.querySelector('#syncAllCharacters').onclick=event=>syncAllCharacters(event.currentTarget);
+}
+
+function formatSyncTime(value){
+  if(!value) return '尚未同步';
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?String(value):date.toLocaleString('zh-TW',{hour12:false});
+}
+function equipmentLabel(item){
+  const labels=[];
+  if(item.starforce) labels.push(`${item.starforce}★`);
+  if(item.potentialGrade) labels.push(item.potentialGrade);
+  if(item.additionalPotentialGrade) labels.push(`附加 ${item.additionalPotentialGrade}`);
+  return labels.join(' · ') || '—';
+}
+async function syncOneCharacter(characterId,button){
+  const key=savedApiKey();
+  if(!key){currentView='settings';currentCharacterId=null;render();notify('請先在設定貼上並儲存 NEXON API Key。');return false;}
+  const character=data.characters.find(c=>c.id===characterId);
+  if(!character){notify('找不到角色。');return false;}
+  const original=button?.textContent;
+  if(button){button.disabled=true;button.textContent='準備同步…';}
+  try {
+    const snapshot=await NexonSync.fetchCharacter(character.name,key,message=>{if(button)button.textContent=message;});
+    commitData(NexonSync.apply(data,character.id,snapshot,localDate()));
+    if(currentCharacterId===character.id) renderCharacterDetail(); else render();
+    notify(`${snapshot.name || character.name} 已同步；手動資料與歷史紀錄均已保留。`);
+    return true;
+  } catch(error){notify(`同步失敗：${error.message}`);return false;}
+  finally {if(button?.isConnected){button.disabled=false;button.textContent=original;}}
+}
+async function syncAllCharacters(button){
+  if(!savedApiKey()){notify('請先貼上並儲存 NEXON API Key。');return;}
+  const ids=data.characters.map(c=>c.id);let done=0;
+  button.disabled=true;
+  for(const id of ids){
+    const character=data.characters.find(c=>c.id===id);
+    button.textContent=`同步 ${done+1}/${ids.length}：${character?.name || ''}`;
+    if(await syncOneCharacter(id,null)) done++;
+  }
+  renderSettings();notify(`已完成 ${done}/${ids.length} 隻角色同步。`);
 }
 function bindCharacterClicks(){
   document.querySelectorAll("[data-character]").forEach(el=>el.onclick=()=>{
@@ -537,4 +610,5 @@ document.querySelector('#confirmImport').onclick=()=>{
   } catch(error){const el=document.querySelector('#importError');el.textContent=error.message;el.hidden=false;}
 };
 render();
+updateSyncCard();
 if(storageProblem)notify(storageProblem);
