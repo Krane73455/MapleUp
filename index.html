@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <title>MapleUp</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">M</div>
+        <div>
+          <h1>MapleUp</h1>
+          <p>打王分身強化管理</p>
+        </div>
+      </div>
+
+      <nav id="mainNav" class="nav">
+        <button class="nav-btn active" data-view="dashboard">🔥 強化總覽</button>
+        <button class="nav-btn" data-view="characters">👤 角色</button>
+        <button class="nav-btn" data-view="crystals">💰 結晶</button>
+        <button class="nav-btn" data-view="settings">⚙️ 設定</button>
+      </nav>
+
+      <div class="sync-card">
+        <span class="status-dot"></span>
+        <div>
+          <strong>NEXON API</strong>
+          <small>尚未連線</small>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">MapleStory Boss Mule Manager</p>
+          <h2 id="pageTitle">強化總覽</h2>
+        </div>
+        <button id="addCharacterBtn" class="primary-btn">＋ 新增角色</button>
+      </header>
+
+      <section id="view"></section>
+    </main>
+  </div>
+
+  <dialog id="characterDialog">
+    <form method="dialog" id="characterForm" class="dialog-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Character</p>
+          <h3>新增角色</h3>
+        </div>
+        <button value="cancel" class="icon-btn" aria-label="關閉">✕</button>
+      </div>
+      <label>角色名稱<input name="name" required placeholder="例如：暗夜行者" /></label>
+      <label>職業<input name="job" required placeholder="例如：暗夜行者" /></label>
+      <label>等級<input name="level" type="number" min="1" value="260" required /></label>
+      <label>目前戰力<input name="currentPower" type="number" min="0" value="0" /></label>
+      <label>指定 Boss<input name="targetBoss" placeholder="例如：困難史烏" /></label>
+      <label>最佳通關時間（mm:ss）<input name="bestTime" placeholder="例如：28:42" /></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost-btn">取消</button>
+        <button type="submit" value="default" class="primary-btn">新增</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./app.js"></script>
+</body>
+</html>
