@@ -43,6 +43,7 @@
         <button id="addCharacterBtn" class="primary-btn">＋ 新增角色</button>
       </header>
 
+      <p id="notice" role="status" aria-live="polite" hidden></p>
       <section id="view"></section>
     </main>
   </div>
@@ -52,23 +53,39 @@
       <div class="dialog-head">
         <div>
           <p class="eyebrow">Character</p>
-          <h3>新增角色</h3>
+          <h3 id="characterDialogTitle">新增角色</h3>
         </div>
-        <button value="cancel" class="icon-btn" aria-label="關閉">✕</button>
+        <button type="button" data-close-character class="icon-btn" aria-label="關閉">✕</button>
       </div>
       <label>角色名稱<input name="name" required placeholder="例如：暗夜行者" /></label>
       <label>職業<input name="job" required placeholder="例如：暗夜行者" /></label>
       <label>等級<input name="level" type="number" min="1" value="260" required /></label>
       <label>目前戰力<input name="currentPower" type="number" min="0" value="0" /></label>
       <label>指定 Boss<input name="targetBoss" placeholder="例如：困難史烏" /></label>
-      <label>最佳通關時間（mm:ss）<input name="bestTime" placeholder="例如：28:42" /></label>
+      <label>最佳通關時間（mm:ss）<input name="bestTime" placeholder="例如：28:42" pattern="[0-9]+:[0-5][0-9]" /></label>
+      <label>備註<textarea name="notes" rows="3" placeholder="例如：等活動再強化"></textarea></label>
+      <p class="muted">戰力變更時會新增歷史紀錄，歷史最高戰力不會因下降而降低。更換 Boss 後請重新填寫通關時間。</p>
+      <p id="formError" role="alert" hidden></p>
       <div class="dialog-actions">
-        <button value="cancel" class="ghost-btn">取消</button>
-        <button type="submit" value="default" class="primary-btn">新增</button>
+        <button type="button" data-close-character class="ghost-btn">取消</button>
+        <button id="saveCharacterBtn" type="submit" value="default" class="primary-btn">新增</button>
       </div>
     </form>
   </dialog>
 
+  <dialog id="importDialog" aria-labelledby="importTitle">
+    <div class="dialog-card">
+      <h3 id="importTitle">確認還原備份</h3>
+      <p id="importSummary"></p>
+      <p>還原會取代目前所有角色、戰力與結晶紀錄。替換前會保留一份本機復原備份。</p>
+      <p id="importError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="cancelImport" class="ghost-btn">取消</button>
+        <button id="confirmImport" class="primary-btn">確認還原</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="./core.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

@@ -125,3 +125,15 @@ dialog::backdrop{background:rgba(2,6,23,.74);backdrop-filter:blur(4px)}
   .main{padding:20px 14px 88px}.topbar{align-items:flex-start}.topbar h2{font-size:24px}.primary-btn{white-space:nowrap}
   .metrics,.characters-grid{grid-template-columns:1fr}.priority-row{grid-template-columns:40px 1.4fr 1fr}.priority-row>*:nth-child(n+4){display:none}
 }
+
+/* Editing and backup controls preserve the original layout. */
+.character-actions,.backup-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.danger-btn{background:#38202a;border:1px solid #7f3547;color:#fecdd3;border-radius:12px;padding:10px 14px}
+.dialog-card textarea{font:inherit;background:#0b1220;color:white;border:1px solid #334155;border-radius:10px;padding:11px;resize:vertical}
+dialog{max-height:90dvh;overflow:auto;padding:0}
+.dialog-card p{margin:0;line-height:1.6;font-size:13px}
+#notice{padding:12px 16px;background:#172033;border:1px solid #475569;border-radius:12px;overflow-wrap:anywhere}
+#formError,#importError{color:#fca5a5}
+.name-cell,.character-card,.stat-item,.equipment-item{overflow-wrap:anywhere;min-width:0}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:760px){.character-actions button,.backup-actions button{flex:1 1 100%}}
