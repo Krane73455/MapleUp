@@ -1,0 +1,50 @@
+{
+  "characters": [
+    {
+      "id": "example-character-001",
+      "name": "示範暗夜行者",
+      "job": "暗夜行者",
+      "level": 280,
+      "currentPower": 20800000,
+      "maxPower": 23800000,
+      "targetBoss": "困難史烏",
+      "bestTime": "34:51",
+      "notes": "示範資料，非實際角色",
+      "stats": {
+        "主屬性": "42,300",
+        "Boss 傷害": "387%",
+        "無視防禦": "96.4%",
+        "ARC": "1,320",
+        "AUT": "280"
+      },
+      "equipment": [
+        {
+          "slot": "武器",
+          "grade": "🟠 優先",
+          "note": "示範裝備缺口"
+        }
+      ],
+      "powerHistory": [
+        {
+          "date": "09/10",
+          "value": 23800000
+        },
+        {
+          "date": "09/17",
+          "value": 20800000
+        }
+      ]
+    }
+  ],
+  "crystalWeeks": [
+    {
+      "week": "2026/09/14–09/20",
+      "character": "示範暗夜行者",
+      "income": 0,
+      "done": false
+    }
+  ],
+  "settings": {
+    "stopUnderMinutes": 30
+  }
+}
