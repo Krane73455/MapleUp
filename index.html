@@ -73,6 +73,30 @@
     </form>
   </dialog>
 
+  <dialog id="crystalDialog" aria-labelledby="crystalDialogTitle">
+    <form method="dialog" id="crystalForm" class="dialog-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Crystal income</p>
+          <h3 id="crystalDialogTitle">新增結晶紀錄</h3>
+        </div>
+        <button type="button" data-close-crystal class="icon-btn" aria-label="關閉">✕</button>
+      </div>
+      <label>角色<select name="characterId" required></select></label>
+      <label>Boss<input name="boss" required placeholder="例如：困難史烏" /></label>
+      <label>週期起始日<input name="weekStart" type="date" required /></label>
+      <label>結晶收入<input name="income" type="number" min="0" step="1" required /></label>
+      <label class="check-label"><input name="done" type="checkbox" /> 已完成並計入收入</label>
+      <label>備註<textarea name="notes" rows="3" placeholder="例如：兩人分配後金額"></textarea></label>
+      <p class="muted">既有的角色合計資料會保留為「未分類」，之後可以逐筆整理成 Boss 紀錄。</p>
+      <p id="crystalFormError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" data-close-crystal class="ghost-btn">取消</button>
+        <button id="saveCrystalBtn" type="submit" class="primary-btn">新增</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="importDialog" aria-labelledby="importTitle">
     <div class="dialog-card">
       <h3 id="importTitle">確認還原備份</h3>

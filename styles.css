@@ -115,7 +115,7 @@ dialog::backdrop{background:rgba(2,6,23,.74);backdrop-filter:blur(4px)}
 .dialog-card{background:#111827;border:1px solid var(--line);border-radius:20px;padding:20px;display:grid;gap:14px}
 .dialog-head{display:flex;justify-content:space-between;align-items:center}.dialog-head h3{margin:0}
 .dialog-card label{display:grid;gap:6px;color:#cbd5e1;font-size:13px}
-.dialog-card input{background:#0b1220;color:white;border:1px solid #334155;border-radius:10px;padding:11px}
+.dialog-card input,.dialog-card select{background:#0b1220;color:white;border:1px solid #334155;border-radius:10px;padding:11px}
 .dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
 .empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed #334155;border-radius:14px}
 @media (max-width:1050px){.metrics{grid-template-columns:repeat(2,1fr)}.characters-grid{grid-template-columns:repeat(2,1fr)}.priority-row{grid-template-columns:48px 1.4fr 1fr 1fr}.priority-row>*:nth-child(5),.priority-row>*:nth-child(6){display:none}.detail-grid{grid-template-columns:1fr}}
@@ -130,10 +130,14 @@ dialog::backdrop{background:rgba(2,6,23,.74);backdrop-filter:blur(4px)}
 .character-actions,.backup-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
 .danger-btn{background:#38202a;border:1px solid #7f3547;color:#fecdd3;border-radius:12px;padding:10px 14px}
 .dialog-card textarea{font:inherit;background:#0b1220;color:white;border:1px solid #334155;border-radius:10px;padding:11px;resize:vertical}
+.check-label{display:flex!important;grid-template-columns:none!important;align-items:center;gap:9px}.check-label input{width:18px;height:18px;padding:0}
+.crystal-head{align-items:flex-end}.crystal-toolbar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.crystal-toolbar label{display:grid;gap:6px;color:var(--muted);font-size:12px}.crystal-toolbar select{background:#0b1220;color:white;border:1px solid #334155;border-radius:10px;padding:10px}
+.table-wrap{overflow-x:auto}.row-actions{display:flex;gap:8px}.row-actions button{padding:7px 10px;white-space:nowrap}
+.crystal-done{width:18px;height:18px;accent-color:var(--good)}button:disabled{opacity:.5;cursor:not-allowed}
 dialog{max-height:90dvh;overflow:auto;padding:0}
 .dialog-card p{margin:0;line-height:1.6;font-size:13px}
 #notice{padding:12px 16px;background:#172033;border:1px solid #475569;border-radius:12px;overflow-wrap:anywhere}
 #formError,#importError{color:#fca5a5}
 .name-cell,.character-card,.stat-item,.equipment-item{overflow-wrap:anywhere;min-width:0}
 button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-@media(max-width:760px){.character-actions button,.backup-actions button{flex:1 1 100%}}
+@media(max-width:760px){.character-actions button,.backup-actions button,.crystal-toolbar,.crystal-toolbar button,.crystal-toolbar label{flex:1 1 100%}.crystal-head{align-items:stretch}.table-wrap{margin-inline:-8px}}

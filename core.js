@@ -24,9 +24,15 @@
         throw new Error('角色資料格式不正確，或角色識別碼重複。原資料未變更。');
       ids.add(c.id);
     }
+    const crystalIds = new Set();
     for(const row of input.crystalWeeks){
       if(!object(row) || !text(row.week) || !text(row.character) || !number(row.income) || typeof row.done !== 'boolean' ||
-         (row.characterId !== undefined && !text(row.characterId))) throw new Error('結晶紀錄格式不正確。原資料未變更。');
+         (row.id !== undefined && (!text(row.id) || !row.id || crystalIds.has(row.id))) ||
+         (row.characterId !== undefined && !text(row.characterId)) ||
+         (row.boss !== undefined && !text(row.boss)) ||
+         (row.weekStart !== undefined && (!text(row.weekStart) || !/^\d{4}-\d{2}-\d{2}$/.test(row.weekStart))) ||
+         (row.notes !== undefined && !text(row.notes))) throw new Error('結晶紀錄格式不正確，或紀錄識別碼重複。原資料未變更。');
+      if(row.id !== undefined) crystalIds.add(row.id);
     }
     return input;
   }
@@ -38,7 +44,20 @@
       c.stats ||= {};
       c.maxPower = c.powerHistory.reduce((max,h)=>Math.max(max,h.value),Math.max(c.maxPower,c.currentPower));
     }
-    for(const row of data.crystalWeeks){
+    const usedCrystalIds = new Set(data.crystalWeeks.map(row=>row.id).filter(Boolean));
+    for(const [index,row] of data.crystalWeeks.entries()){
+      if(!row.id){
+        let candidate = `legacy-crystal-${index}`;
+        while(usedCrystalIds.has(candidate)) candidate += '-migrated';
+        row.id = candidate;
+        usedCrystalIds.add(candidate);
+      }
+      row.boss ||= '未分類';
+      row.notes ||= '';
+      if(!row.weekStart){
+        const match = row.week.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+        if(match) row.weekStart = `${match[1]}-${match[2]}-${match[3]}`;
+      }
       const matches = data.characters.filter(c=>c.name === row.character);
       if(row.characterId === undefined && matches.length === 1) row.characterId = matches[0].id;
     }

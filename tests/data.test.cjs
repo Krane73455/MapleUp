@@ -14,6 +14,9 @@ test('legacy data preserves equipment/history and links unique income records',(
   const n=core.normalize(seed);
   assert.deepEqual(n.characters,seed.characters);
   assert.equal(n.crystalWeeks[0].characterId,seed.characters[0].id);
+  assert.equal(n.crystalWeeks[0].boss,'未分類');
+  assert.equal(n.crystalWeeks[0].weekStart,'2026-09-14');
+  assert.ok(n.crystalWeeks[0].id);
   assert.equal(seed.crystalWeeks[0].characterId,undefined);
 });
 test('editing down/up preserves max and every changed value; metadata does not duplicate history',()=>{
@@ -43,6 +46,14 @@ test('unmatched or duplicate-name revenues remain intact',()=>{
   assert.equal(core.normalize(s).crystalWeeks[0].characterId,undefined);
   const n=core.normalize(seed);n.characters=[];
   assert.deepEqual(core.parseBackup(core.backup(n)).crystalWeeks,n.crystalWeeks);
+});
+test('crystal records preserve manual fields and reject duplicate ids',()=>{
+  const n=core.normalize(seed);
+  n.crystalWeeks[0].boss='困難史烏';n.crystalWeeks[0].income=123456789;n.crystalWeeks[0].done=true;n.crystalWeeks[0].notes='手動金額';
+  const restored=core.parseBackup(core.backup(n));
+  assert.deepEqual(restored.crystalWeeks[0],n.crystalWeeks[0]);
+  restored.crystalWeeks.push({...restored.crystalWeeks[0]});
+  assert.throws(()=>core.normalize(restored),/重複/);
 });
 test('storage write failure keeps active data, destructive recovery precedes replacement',()=>{
   const values=new Map([['mapleup-v1',JSON.stringify(seed)]]);

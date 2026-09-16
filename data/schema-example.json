@@ -38,10 +38,15 @@
   ],
   "crystalWeeks": [
     {
+      "id": "example-crystal-001",
+      "weekStart": "2026-09-14",
       "week": "2026/09/14–09/20",
+      "characterId": "example-character-001",
       "character": "示範暗夜行者",
-      "income": 0,
-      "done": false
+      "boss": "困難史烏",
+      "income": 30000000,
+      "done": true,
+      "notes": "示範資料"
     }
   ],
   "settings": {

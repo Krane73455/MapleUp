@@ -83,11 +83,14 @@ const esc = value => String(value ?? "").replace(/[&<>"']/g, char=>({'&':'&amp;'
 let currentView = "dashboard";
 let currentCharacterId = null;
 let characterTab = "overview";
+let selectedCrystalWeek = weekStartISO(new Date());
 
 const view = document.querySelector("#view");
 const pageTitle = document.querySelector("#pageTitle");
 const dialog = document.querySelector("#characterDialog");
 const form = document.querySelector("#characterForm");
+const crystalDialog = document.querySelector('#crystalDialog');
+const crystalForm = document.querySelector('#crystalForm');
 
 const fmtPower = n => {
   if(!n) return "—";
@@ -134,6 +137,26 @@ function localDate(){
   const d = new Date();
   return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
 }
+function isoDate(date){
+  return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+}
+function weekStartISO(date){
+  const d = new Date(date.getFullYear(),date.getMonth(),date.getDate());
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  return isoDate(d);
+}
+function weekLabel(startISO){
+  const start = new Date(`${startISO}T00:00:00`);
+  if(Number.isNaN(start.getTime())) return startISO;
+  const end = new Date(start);end.setDate(start.getDate()+6);
+  const first = `${start.getFullYear()}/${String(start.getMonth()+1).padStart(2,'0')}/${String(start.getDate()).padStart(2,'0')}`;
+  const last = start.getFullYear()===end.getFullYear()
+    ? `${String(end.getMonth()+1).padStart(2,'0')}/${String(end.getDate()).padStart(2,'0')}`
+    : `${end.getFullYear()}/${String(end.getMonth()+1).padStart(2,'0')}/${String(end.getDate()).padStart(2,'0')}`;
+  return `${first}–${last}`;
+}
+const crystalWeekKey = row => row.weekStart || `legacy:${row.week}`;
+const selectedCrystalRows = () => data.crystalWeeks.filter(row=>crystalWeekKey(row)===selectedCrystalWeek);
 function setNav(){
   document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === currentView));
 }
@@ -151,7 +174,8 @@ function renderDashboard(){
   const ranked = chars.filter(c => getStatus(c).score > 0).sort((a,b)=>priority(b)-priority(a));
   const stopped = chars.filter(c=>getStatus(c).score === 0);
   const untested = chars.filter(c=>getStatus(c).label === "待測");
-  const weekIncome = data.crystalWeeks.reduce((s,x)=>s+x.income,0);
+  const currentWeek = weekStartISO(new Date());
+  const weekIncome = data.crystalWeeks.filter(x=>crystalWeekKey(x)===currentWeek && x.done).reduce((s,x)=>s+x.income,0);
 
   view.innerHTML = `
     <div class="grid metrics">
@@ -287,19 +311,58 @@ function powerChart(c){
 }
 function renderCrystals(){
   pageTitle.textContent = "結晶收入";
-  const total = data.crystalWeeks.reduce((s,x)=>s+x.income,0);
+  const currentWeek = weekStartISO(new Date());
+  const weekKeys = [...new Set([currentWeek,...data.crystalWeeks.map(crystalWeekKey)])].sort().reverse();
+  if(!weekKeys.includes(selectedCrystalWeek)) selectedCrystalWeek=currentWeek;
+  const rows = selectedCrystalRows();
+  const completed = rows.filter(x=>x.done);
+  const earned = completed.reduce((s,x)=>s+x.income,0);
+  const planned = rows.reduce((s,x)=>s+x.income,0);
+  const selectedMonth = selectedCrystalWeek.startsWith('legacy:') ? '' : selectedCrystalWeek.slice(0,7);
+  const monthIncome = selectedMonth ? data.crystalWeeks.filter(x=>x.done && x.weekStart?.startsWith(selectedMonth)).reduce((s,x)=>s+x.income,0) : 0;
+  const labelFor = key => key.startsWith('legacy:') ? key.slice(7) : weekLabel(key);
   view.innerHTML = `<div class="grid metrics">
-    <div class="metric"><small>💰 本週收入</small><strong>${fmtMoney(total)}</strong></div>
-    <div class="metric"><small>✅ 已完成角色</small><strong>${data.crystalWeeks.filter(x=>x.done).length}</strong></div>
-    <div class="metric"><small>⬜ 未完成角色</small><strong>${data.crystalWeeks.filter(x=>!x.done).length}</strong></div>
-    <div class="metric"><small>👥 角色數</small><strong>${data.characters.length}</strong></div>
+    <div class="metric"><small>💰 本週已收入</small><strong>${fmtMoney(earned)}</strong></div>
+    <div class="metric"><small>📋 本週預估</small><strong>${fmtMoney(planned)}</strong></div>
+    <div class="metric"><small>✅ 完成紀錄</small><strong>${completed.length} / ${rows.length}</strong></div>
+    <div class="metric"><small>📅 當月已收入</small><strong>${fmtMoney(monthIncome)}</strong></div>
   </div>
   <div class="panel">
-    <div class="panel-head"><div><h3>本週打王</h3><p>第一版先保留角色級別的結晶收入，後續可擴充成逐 Boss 勾選。</p></div></div>
-    <table><thead><tr><th>角色</th><th>區間</th><th>完成</th><th>收入</th></tr></thead><tbody>
-      ${data.crystalWeeks.map(x=>`<tr><td>${esc(x.character)}</td><td>${esc(x.week)}</td><td>${x.done?"✅":"⬜"}</td><td>${fmtMoney(x.income)}</td></tr>`).join("")}
-    </tbody></table>
+    <div class="panel-head crystal-head">
+      <div><h3>本週打王</h3><p>直接勾選完成；點編輯可調整 Boss、收入與備註。</p></div>
+      <div class="crystal-toolbar">
+        <label>週期<select id="crystalWeekSelect">${weekKeys.map(key=>`<option value="${esc(key)}" ${key===selectedCrystalWeek?'selected':''}>${esc(labelFor(key))}</option>`).join('')}</select></label>
+        <button id="addCrystal" class="primary-btn" ${data.characters.length?'':'disabled'}>＋ 新增 Boss 紀錄</button>
+      </div>
+    </div>
+    ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>完成</th><th>角色</th><th>Boss</th><th>收入</th><th>備註</th><th>操作</th></tr></thead><tbody>
+      ${rows.map(x=>`<tr>
+        <td><input class="crystal-done" data-crystal-id="${esc(x.id)}" type="checkbox" ${x.done?'checked':''} aria-label="${esc(x.character)} ${esc(x.boss)} 完成狀態" /></td>
+        <td>${esc(x.character)}</td><td>${esc(x.boss)}</td><td>${fmtMoney(x.income)}</td><td>${esc(x.notes || '—')}</td>
+        <td class="row-actions"><button class="ghost-btn crystal-edit" data-crystal-id="${esc(x.id)}">編輯</button><button class="danger-btn crystal-delete" data-crystal-id="${esc(x.id)}">刪除</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>` : `<div class="empty">這個週期尚無 Boss 紀錄。${data.characters.length?'按「新增 Boss 紀錄」開始登記。':'請先新增角色。'}</div>`}
   </div>`;
+  document.querySelector('#crystalWeekSelect').onchange=event=>{selectedCrystalWeek=event.target.value;renderCrystals();};
+  const addButton=document.querySelector('#addCrystal');
+  if(addButton) addButton.onclick=()=>openCrystal();
+  document.querySelectorAll('.crystal-done').forEach(input=>input.onchange=()=>{
+    try {
+      const next=structuredClone(data);
+      const row=next.crystalWeeks.find(x=>x.id===input.dataset.crystalId);
+      if(!row) throw new Error('找不到這筆結晶紀錄，請重新整理。');
+      row.done=input.checked;commitData(next);renderCrystals();notify(row.done?'已計入本週收入。':'已改為未完成，不計入本週收入。');
+    } catch(error){input.checked=!input.checked;notify(error.message);}
+  });
+  document.querySelectorAll('.crystal-edit').forEach(button=>button.onclick=()=>openCrystal(data.crystalWeeks.find(x=>x.id===button.dataset.crystalId)));
+  document.querySelectorAll('.crystal-delete').forEach(button=>button.onclick=()=>{
+    const row=data.crystalWeeks.find(x=>x.id===button.dataset.crystalId);
+    if(!row || !confirm(`刪除「${row.character}－${row.boss}」的結晶紀錄？刪除前會保存一份本機復原備份。`)) return;
+    try {
+      const next=structuredClone(data);next.crystalWeeks=next.crystalWeeks.filter(x=>x.id!==row.id);
+      commitData(next,{recovery:true});renderCrystals();notify('結晶紀錄已刪除。');
+    } catch(error){notify(error.message);}
+  });
 }
 function renderSettings(){
   pageTitle.textContent = "設定";
@@ -366,6 +429,7 @@ document.querySelectorAll(".nav-btn").forEach(btn=>btn.onclick=()=>{
   render();
 });
 let editingId=null;
+let editingCrystalId=null;
 let pendingImport=null;
 function download(raw,prefix){
   const url=URL.createObjectURL(new Blob([raw],{type:'application/json;charset=utf-8'}));
@@ -384,7 +448,29 @@ function openCharacter(c=null){
   }
   dialog.showModal();
 }
+function openCrystal(row=null){
+  if(storageProblem){notify(storageProblem);return;}
+  if(!row && !data.characters.length){notify('請先新增角色，再建立 Boss 紀錄。');return;}
+  editingCrystalId=row?.id || null;crystalForm.reset();
+  document.querySelector('#crystalFormError').hidden=true;
+  document.querySelector('#crystalDialogTitle').textContent=row?'編輯結晶紀錄':'新增結晶紀錄';
+  document.querySelector('#saveCrystalBtn').textContent=row?'儲存變更':'新增';
+  const select=crystalForm.elements.namedItem('characterId');
+  select.innerHTML=data.characters.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  const linked=row && data.characters.some(c=>c.id===row.characterId);
+  if(row && !linked){
+    const option=document.createElement('option');option.value='__legacy__';option.textContent=`${row.character}（舊紀錄）`;select.prepend(option);
+  }
+  select.value=row ? (linked?row.characterId:'__legacy__') : data.characters[0]?.id;
+  crystalForm.elements.namedItem('boss').value=row?.boss || '';
+  crystalForm.elements.namedItem('weekStart').value=row?.weekStart || (selectedCrystalWeek.startsWith('legacy:')?weekStartISO(new Date()):selectedCrystalWeek);
+  crystalForm.elements.namedItem('income').value=row?.income ?? 0;
+  crystalForm.elements.namedItem('done').checked=row?.done || false;
+  crystalForm.elements.namedItem('notes').value=row?.notes || '';
+  crystalDialog.showModal();
+}
 document.querySelectorAll('[data-close-character]').forEach(btn=>btn.onclick=()=>dialog.close());
+document.querySelectorAll('[data-close-crystal]').forEach(btn=>btn.onclick=()=>crystalDialog.close());
 document.querySelector('#addCharacterBtn').onclick=()=>openCharacter();
 form.addEventListener('submit',event=>{
   event.preventDefault();
@@ -407,6 +493,39 @@ form.addEventListener('submit',event=>{
     if(editingId){currentCharacterId=editingId;currentView='character';}else{currentView='characters';}
     render();notify(editingId?'角色已更新；戰力變更已保存到歷史。':'角色已新增。');
   } catch(error){const el=document.querySelector('#formError');el.textContent=error.message;el.hidden=false;}
+});
+crystalForm.addEventListener('submit',event=>{
+  event.preventDefault();
+  try {
+    const fd=new FormData(crystalForm);
+    const original=editingCrystalId ? data.crystalWeeks.find(row=>row.id===editingCrystalId) : null;
+    const selectedId=String(fd.get('characterId'));
+    const character=selectedId==='__legacy__' ? null : data.characters.find(c=>c.id===selectedId);
+    if(!character && selectedId!=='__legacy__') throw new Error('請選擇有效角色。');
+    if(selectedId==='__legacy__' && !original) throw new Error('找不到舊角色紀錄。');
+    const weekStart=String(fd.get('weekStart'));
+    const income=Number(fd.get('income'));
+    const boss=String(fd.get('boss')).trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) throw new Error('請選擇週期起始日。');
+    if(!boss) throw new Error('請填寫 Boss。');
+    if(!Number.isSafeInteger(income) || income<0) throw new Error('收入必須是零以上的整數。');
+    const row={
+      id:editingCrystalId || crypto.randomUUID(),weekStart,week:weekLabel(weekStart),
+      characterId:character?.id ?? original?.characterId,character:character?.name ?? original.character,
+      boss,income,done:fd.get('done')==='on',notes:String(fd.get('notes')).trim()
+    };
+    if(row.characterId===undefined) delete row.characterId;
+    const duplicate=data.crystalWeeks.some(existing=>existing.id!==editingCrystalId && existing.weekStart===row.weekStart &&
+      (row.characterId ? existing.characterId===row.characterId : existing.character===row.character) && existing.boss.trim()===row.boss);
+    if(duplicate) throw new Error('這個週期已經有相同角色與 Boss 的紀錄，請直接編輯原紀錄。');
+    const next=structuredClone(data);
+    if(editingCrystalId){
+      const index=next.crystalWeeks.findIndex(x=>x.id===editingCrystalId);
+      if(index<0) throw new Error('找不到這筆結晶紀錄，請重新整理。');
+      next.crystalWeeks[index]=row;
+    } else next.crystalWeeks.push(row);
+    commitData(next);selectedCrystalWeek=weekStart;crystalDialog.close();renderCrystals();notify(editingCrystalId?'結晶紀錄已更新。':'Boss 紀錄已新增。');
+  } catch(error){const el=document.querySelector('#crystalFormError');el.textContent=error.message;el.hidden=false;}
 });
 document.querySelector('#cancelImport').onclick=()=>document.querySelector('#importDialog').close();
 document.querySelector('#importDialog').addEventListener('close',()=>{pendingImport=null;});
