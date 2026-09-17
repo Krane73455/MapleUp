@@ -25,8 +25,9 @@ test('editing down/up preserves max and every changed value; metadata does not d
   assert.equal(n.characters[0].maxPower,23800000);
   assert.equal(n.characters[0].powerHistory.length,count+1);
   assert.equal(n.crystalWeeks[0].character,'改名');
-  n=core.edit(n,c.id,{notes:'只有備註',currentPower:100,bestTime:'30:00'},'2026-09-17');
+  n=core.edit(n,c.id,{notes:'只有備註',bestTime:'30:00'},'2026-09-17');
   assert.equal(n.characters[0].powerHistory.length,count+1);
+  assert.equal(n.characters[0].currentPower,100);
   n=core.edit(n,c.id,{currentPower:30000000,bestTime:'29:59'},'2026-09-17');
   assert.equal(n.characters[0].maxPower,30000000);
   assert.deepEqual(n.characters[0].equipment,c.equipment);

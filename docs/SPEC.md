@@ -32,7 +32,8 @@
 角色包含 id、name、job、level、currentPower、maxPower、targetBoss、bestTime、notes、stats、equipment、powerHistory、archived，以及同步後才會出現的 nexon 快照。
 - currentPower 保存目前戰力，maxPower 獨立保存歷史最高戰力。
 - powerHistory 保存每筆日期及戰力值；目前原型日期採 MM/DD。
-- 新增角色時，以輸入戰力初始化目前與最高戰力，非零時新增歷史紀錄。
+- 手動新增角色的戰力先以 0 建立；目前戰力與戰力歷史只由 NEXON API 同步寫入，不提供表單手動修改。
+- 職業欄位使用劍士、法師、弓箭手、盜賊、海盜分類選單；既有或 API 回傳但未列入目錄的職業仍會保留並可顯示。
 - NEXON 同步會更新角色名稱、職業、等級及目前戰力；最高戰力只在新值更高時更新，歷史紀錄保留下降的數值。
 - nexon 保存最近同步時間、角色圖、伺服器、API 能力值及目前裝備。手動 stats、equipment、Boss、備註、結晶與舊戰力紀錄不會被覆蓋。
 - equipment 為部位、評等及備註的示範分析。

@@ -1,6 +1,13 @@
 
 const STORE_KEY = "mapleup-v1";
 const NEXON_KEY = "mapleup-nexon-api-key";
+const JOB_GROUPS = [
+  ['劍士',['英雄','聖騎士','黑騎士','聖魂劍士','米哈逸','狂狼勇士','惡魔殺手','惡魔復仇者','爆拳槍神','凱撒','神之子','阿戴爾','劍豪']],
+  ['法師',['火毒大魔導士','冰雷大魔導士','主教','烈焰巫師','龍魔導士','夜光','煉獄巫師','凱內西斯','伊利恩','菈菈','陰陽師','琳恩','幻獸師']],
+  ['弓箭手',['箭神','神射手','開拓者','破風使者','精靈遊俠','狂豹獵人','凱殷','蓮']],
+  ['盜賊',['夜使者','暗影神偷','影武者','暗夜行者','幻影俠盜','卡蒂娜','虎影','卡莉','傑諾']],
+  ['海盜',['拳霸','槍神','重砲指揮官','閃雷悍將','隱月','機甲戰神','天使破壞者','亞克','墨玄']]
+];
 
 const sampleData = {
   characters: [
@@ -116,6 +123,10 @@ const fmtPower = n => {
   return n.toLocaleString();
 };
 const fmtMoney = n => n ? `${(n/100000000).toFixed(2)}億` : "0";
+function jobOptions(selected=''){
+  const known=JOB_GROUPS.some(([,jobs])=>jobs.includes(selected));
+  return `<option value="">選擇職業</option>${!known&&selected?`<optgroup label="目前職業"><option value="${esc(selected)}" selected>${esc(selected)}</option></optgroup>`:''}${JOB_GROUPS.map(([group,jobs])=>`<optgroup label="# ${group}">${jobs.map(job=>`<option value="${esc(job)}" ${job===selected?'selected':''}>${esc(job)}</option>`).join('')}</optgroup>`).join('')}`;
+}
 const timeToSeconds = MapleData.seconds;
 function getStatus(c){
   const sec = timeToSeconds(c.bestTime);
@@ -292,7 +303,7 @@ function renderCharacterDetail(){
     ["overview","📊 總覽"],["stats","📋 能力面板"],["equipment","🛡️ 裝備分析"],["power","📈 戰力紀錄"]
   ];
   view.innerHTML = `
-    <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色／更新戰力</button><button id="archiveCharacter" class="ghost-btn">${c.archived?'重新啟用':'封存角色'}</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
+    <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色</button><button id="archiveCharacter" class="ghost-btn">${c.archived?'重新啟用':'封存角色'}</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
     <div class="tabs">${tabs.map(([k,l])=>`<button class="tab-btn ${characterTab===k?"active":""}" data-tab="${esc(k)}">${l}</button>`).join("")}</div>
     <div id="characterTab"></div>`;
   document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>{characterTab=b.dataset.tab;renderCharacterDetail()});
@@ -563,9 +574,10 @@ function openCharacter(c=null){
   editingId=c?.id || null;form.reset();
   document.querySelector('#formError').hidden=true;
   document.querySelector('#nexonQuickAdd').hidden=Boolean(c);
-  document.querySelector('#characterDialogTitle').textContent=c?'編輯角色／更新戰力':'新增角色';
+  document.querySelector('#characterDialogTitle').textContent=c?'編輯角色':'新增角色';
   document.querySelector('#saveCharacterBtn').textContent=c?'儲存變更':'新增';
-  for(const name of ['name','job','level','currentPower','targetBoss','bestTime','notes']){
+  form.elements.namedItem('job').innerHTML=jobOptions(c?.job||'');
+  for(const name of ['name','job','level','targetBoss','bestTime','notes']){
     if(c) form.elements.namedItem(name).value=c[name];
   }
   dialog.showModal();
@@ -619,7 +631,7 @@ form.addEventListener('submit',event=>{
   event.preventDefault();
   try {
     const fd=new FormData(form);
-    const fields={name:String(fd.get('name')).trim(),job:String(fd.get('job')).trim(),level:Number(fd.get('level')),currentPower:Number(fd.get('currentPower')||0),targetBoss:String(fd.get('targetBoss')).trim(),bestTime:String(fd.get('bestTime')).trim(),notes:String(fd.get('notes')).trim()};
+    const fields={name:String(fd.get('name')).trim(),job:String(fd.get('job')).trim(),level:Number(fd.get('level')),targetBoss:String(fd.get('targetBoss')).trim(),bestTime:String(fd.get('bestTime')).trim(),notes:String(fd.get('notes')).trim()};
     if(!fields.name || !fields.job) throw new Error('請填寫角色名稱與職業。');
     if(fields.bestTime && timeToSeconds(fields.bestTime)===null) throw new Error('請填寫有效時間，例如 28:42；秒數為 00–59，總時間須大於零。');
     let next;
@@ -629,12 +641,12 @@ form.addEventListener('submit',event=>{
       next=MapleData.edit(data,editingId,fields,localDate());
     } else {
       next=structuredClone(data);
-      next.characters.push({id:crypto.randomUUID(),...fields,maxPower:fields.currentPower,stats:{'主屬性':'-','Boss 傷害':'-','無視防禦':'-','ARC':'-','AUT':'-'},equipment:[],powerHistory:fields.currentPower?[{date:localDate(),value:fields.currentPower}]:[]});
+      next.characters.push({id:crypto.randomUUID(),...fields,currentPower:0,maxPower:0,stats:{'主屬性':'-','Boss 傷害':'-','無視防禦':'-','ARC':'-','AUT':'-'},equipment:[],powerHistory:[]});
     }
     commitData(next);
     dialog.close();
     if(editingId){currentCharacterId=editingId;currentView='character';}else{currentView='characters';}
-    render();notify(editingId?'角色已更新；戰力變更已保存到歷史。':'角色已新增。');
+    render();notify(editingId?'角色設定已更新；戰力仍由 NEXON API 同步。':'角色已新增；同步 NEXON API 後會取得戰力。');
   } catch(error){const el=document.querySelector('#formError');el.textContent=error.message;el.hidden=false;}
 });
 crystalForm.addEventListener('submit',event=>{

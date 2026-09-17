@@ -87,7 +87,7 @@
     const c = next.characters.find(c=>c.id === id);
     if(!c) throw new Error('找不到角色，請重新開啟角色頁。');
     if(fields.bestTime && seconds(fields.bestTime) === null) throw new Error('請輸入有效時間，例如 28:42；秒數需為 00–59，總時間須大於零。');
-    if(c.currentPower !== fields.currentPower) c.powerHistory.push({date,value:fields.currentPower});
+    if(Object.hasOwn(fields,'currentPower') && c.currentPower !== fields.currentPower) c.powerHistory.push({date,value:fields.currentPower});
     for(const key of ['name','job','level','currentPower','targetBoss','bestTime','notes'])
       if(Object.hasOwn(fields,key)) c[key] = fields[key];
     c.maxPower = Math.max(c.maxPower,c.currentPower);
