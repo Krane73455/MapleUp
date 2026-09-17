@@ -18,8 +18,8 @@
     ['baldrix','巴德利斯',[['normal','普通',560000000],['hard','困難',840000000]]],['jupiter','尤比太',[['normal','普通',705000000],['hard','困難',1368000000]]]
   ];
   const BOSSES=rows.flatMap(([group,name,variants])=>variants.map(([id,difficulty,price])=>({id:`${group}-${id}`,group,name,difficulty,price,cycle:'weekly'})));
-  BOSSES.push({id:'blackmage-hard',group:'blackmage-hard',name:'黑魔法師',difficulty:'困難',price:991000000,cycle:'monthly'},
-    {id:'blackmage-extreme',group:'blackmage-extreme',name:'黑魔法師',difficulty:'極限',price:3000000000,cycle:'monthly'});
+  BOSSES.push({id:'blackmage-hard',group:'blackmage',name:'黑魔法師',difficulty:'困難',price:991000000,cycle:'monthly'},
+    {id:'blackmage-extreme',group:'blackmage',name:'黑魔法師',difficulty:'極限',price:3000000000,cycle:'monthly'});
   const normalize=value=>String(value||'').replace(/[\s・‧·．.（）()]/g,'').replaceAll('終極','極限').replaceAll('露西妲','露希妲').replaceAll('真希菈','真希拉').replaceAll('賽蓮','賽連').replaceAll('塞蓮','賽連');
   const getBoss=id=>BOSSES.find(b=>b.id===id);
   const bossLabel=b=>b.difficulty+b.name;

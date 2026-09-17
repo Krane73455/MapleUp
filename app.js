@@ -384,30 +384,25 @@ function renderCrystals(){
     const capped=!record&&cycle==='weekly'&&(selectedWeekRows.length>=12||weekRows.length>=90);
     return `<div class="boss-ledger-row ${record?'selected':''}"><div class="boss-ledger-name"><strong>${esc(shown.name)}</strong>${record?.pricing==='manual'?'<small>手填金額</small>':''}</div><div class="difficulty-buttons">${variants.map(boss=>`<button class="difficulty-btn ${record?.bossId===boss.id?'picked':''}" data-boss-pick="${boss.id}" ${locked||capped||!selectedCharacter?'disabled':''}>${esc(boss.difficulty)}</button>`).join('')}</div><div>${record?.pricing==='catalog'?`<select class="party-select" data-party-record="${esc(record.id)}" ${record.done?'disabled':''}>${Array.from({length:6},(_,i)=>`<option value="${i+1}" ${(record.partySize||1)===i+1?'selected':''}>${i===0?'單打':`${i+1} 人`}</option>`).join('')}</select>`:'<span class="muted">—</span>'}</div><div class="boss-price">${record?record.income.toLocaleString('zh-TW'):'—'}</div><div class="boss-complete">${record?`<input class="crystal-done" data-crystal-id="${esc(record.id)}" type="checkbox" ${record.done?'checked':''} aria-label="${esc(record.boss)} 已通關" />`:'—'}</div></div>`;
   };
-  const detailRows=[...selectedWeekRows,...monthRows.filter(row=>row.characterId===selectedBossCharacterId)];
   view.innerHTML=`<div class="crystal-summary">
     <div><small>每週預估收入</small><strong>${fmtMoney(weeklyTotal)}</strong></div><div><small>每月預估收入</small><strong>${fmtMoney(monthlyTotal)}</strong><span>4 週收入＋月王</span></div><div><small>本週已完成</small><strong>${fmtMoney(weekDone)}</strong></div><div class="quota"><strong>${weekRows.length}<small> / 90</small></strong><span>已選週結晶</span></div>
   </div>
-  <div class="crystal-periods"><label>週王週期<input id="crystalWeekPicker" type="date" value="${esc(selectedCrystalWeek)}" /></label><label>月王月份<input id="crystalMonthPicker" type="month" value="${esc(selectedCrystalMonth)}" /></label><button id="addCrystal" class="ghost-btn" ${characters.length?'':'disabled'}>＋ 手動紀錄</button></div>
+  <div class="crystal-periods"><label>週王週期<input id="crystalWeekPicker" type="date" value="${esc(selectedCrystalWeek)}" /></label><label>月王月份<input id="crystalMonthPicker" type="month" value="${esc(selectedCrystalMonth)}" /></label></div>
   <div class="boss-workspace">
     <aside class="boss-roster"><div class="boss-roster-head"><h3>角色列表</h3><button id="bossAddCharacter" class="icon-btn">＋</button></div>${characters.map(c=>{const own=weekRows.filter(row=>row.characterId===c.id);return `<button class="roster-character ${c.id===selectedBossCharacterId?'active':''}" data-boss-character="${esc(c.id)}"><span>${esc(c.name)}</span><strong>${fmtMoney(own.reduce((sum,row)=>sum+row.income,0))}</strong><small>${own.length?`${own.length} 隻週王`:'尚未選擇週王'}</small></button>`}).join('')||'<div class="empty">請先新增角色。</div>'}</aside>
     <section class="panel boss-board"><div class="panel-head"><div><h3>${esc(selectedCharacter?.name||'Boss 清單')}</h3><p>點難度直接計算，再點一次取消。</p></div><span class="badge info">週王 ${selectedWeekRows.length} / 12</span></div>
       <div class="boss-ledger-row boss-ledger-head"><span>Boss</span><span>難度</span><span>人數</span><span>楓幣</span><span>通關</span></div>
       ${groupList('weekly').reverse().map(group=>bossRow(group,'weekly')).join('')}
       <div class="monthly-divider"><strong>月王</strong><span>${esc(selectedCrystalMonth)}</span></div>${groupList('monthly').map(group=>bossRow(group,'monthly')).join('')}
-      <details class="crystal-details"><summary>日期與紀錄明細</summary>${detailRows.length?`<div class="table-wrap"><table><thead><tr><th>完成</th><th>Boss</th><th>週期</th><th>收入</th><th>備註</th><th>操作</th></tr></thead><tbody>${detailRows.map(row=>`<tr><td>${row.done?'✅':'⬜'}</td><td>${esc(row.boss)}</td><td>${esc(row.cycle==='monthly'?row.weekStart.slice(0,7):row.week)}</td><td>${row.income.toLocaleString('zh-TW')}</td><td>${esc(row.notes||'—')}</td><td><div class="row-actions"><button class="ghost-btn crystal-edit" data-crystal-id="${esc(row.id)}">編輯</button><button class="danger-btn crystal-delete" data-crystal-id="${esc(row.id)}">刪除</button></div></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">這個角色尚未選擇 Boss。</div>'}</details>
-      <details class="crystal-details"><summary>計算說明</summary><p class="muted">價格為網站規則粗估（僅供參考）。個人金額＝參考價格÷隊伍人數，小數捨去。每角色最多新增 12 隻週王，所有角色合計最多 90 顆週結晶；舊紀錄及手動金額不會被自動改價。</p></details>
     </section>
   </div>`;
   document.querySelector('#crystalWeekPicker').onchange=event=>{const d=new Date(`${event.target.value}T00:00:00`);if(!Number.isNaN(d.getTime()))selectedCrystalWeek=weekStartISO(d);renderCrystals();};
   document.querySelector('#crystalMonthPicker').onchange=event=>{if(/^\d{4}-\d{2}$/.test(event.target.value))selectedCrystalMonth=event.target.value;renderCrystals();};
-  document.querySelector('#addCrystal').onclick=()=>openCrystal();document.querySelector('#bossAddCharacter').onclick=()=>openCharacter();
+  document.querySelector('#bossAddCharacter').onclick=()=>openCharacter();
   document.querySelectorAll('[data-boss-character]').forEach(button=>button.onclick=()=>{selectedBossCharacterId=button.dataset.bossCharacter;renderCrystals();});
   document.querySelectorAll('[data-boss-pick]').forEach(button=>button.onclick=()=>toggleCatalogBoss(button.dataset.bossPick));
   document.querySelectorAll('[data-party-record]').forEach(select=>select.onchange=()=>updateCatalogParty(select.dataset.partyRecord,Number(select.value)));
   document.querySelectorAll('.crystal-done').forEach(input=>input.onchange=()=>updateCrystalDone(input.dataset.crystalId,input.checked));
-  document.querySelectorAll('.crystal-edit').forEach(button=>button.onclick=()=>openCrystal(data.crystalWeeks.find(row=>row.id===button.dataset.crystalId)));
-  document.querySelectorAll('.crystal-delete').forEach(button=>button.onclick=()=>deleteCrystalRecord(button.dataset.crystalId));
 }
 
 function rowsForCrystalPeriod(cycle){
@@ -577,7 +572,7 @@ function openCharacter(c=null){
   document.querySelector('#characterDialogTitle').textContent=c?'編輯角色':'新增角色';
   document.querySelector('#saveCharacterBtn').textContent=c?'儲存變更':'新增';
   form.elements.namedItem('job').innerHTML=jobOptions(c?.job||'');
-  for(const name of ['name','job','level','targetBoss','bestTime','notes']){
+  for(const name of ['name','job','targetBoss','bestTime','notes']){
     if(c) form.elements.namedItem(name).value=c[name];
   }
   dialog.showModal();
@@ -631,7 +626,7 @@ form.addEventListener('submit',event=>{
   event.preventDefault();
   try {
     const fd=new FormData(form);
-    const fields={name:String(fd.get('name')).trim(),job:String(fd.get('job')).trim(),level:Number(fd.get('level')),targetBoss:String(fd.get('targetBoss')).trim(),bestTime:String(fd.get('bestTime')).trim(),notes:String(fd.get('notes')).trim()};
+    const fields={name:String(fd.get('name')).trim(),job:String(fd.get('job')).trim(),targetBoss:String(fd.get('targetBoss')).trim(),bestTime:String(fd.get('bestTime')).trim(),notes:String(fd.get('notes')).trim()};
     if(!fields.name || !fields.job) throw new Error('請填寫角色名稱與職業。');
     if(fields.bestTime && timeToSeconds(fields.bestTime)===null) throw new Error('請填寫有效時間，例如 28:42；秒數為 00–59，總時間須大於零。');
     let next;
@@ -641,12 +636,12 @@ form.addEventListener('submit',event=>{
       next=MapleData.edit(data,editingId,fields,localDate());
     } else {
       next=structuredClone(data);
-      next.characters.push({id:crypto.randomUUID(),...fields,currentPower:0,maxPower:0,stats:{'主屬性':'-','Boss 傷害':'-','無視防禦':'-','ARC':'-','AUT':'-'},equipment:[],powerHistory:[]});
+      next.characters.push({id:crypto.randomUUID(),...fields,level:1,currentPower:0,maxPower:0,stats:{'主屬性':'-','Boss 傷害':'-','無視防禦':'-','ARC':'-','AUT':'-'},equipment:[],powerHistory:[]});
     }
     commitData(next);
     dialog.close();
     if(editingId){currentCharacterId=editingId;currentView='character';}else{currentView='characters';}
-    render();notify(editingId?'角色設定已更新；戰力仍由 NEXON API 同步。':'角色已新增；同步 NEXON API 後會取得戰力。');
+    render();notify(editingId?'角色設定已更新；等級與戰力仍由 NEXON API 同步。':'角色已新增；同步 NEXON API 後會取得等級與戰力。');
   } catch(error){const el=document.querySelector('#formError');el.textContent=error.message;el.hidden=false;}
 });
 crystalForm.addEventListener('submit',event=>{

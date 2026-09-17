@@ -5,6 +5,7 @@ const catalog=require('../boss-catalog.js');
 test('catalog contains weekly and monthly choices with exact party split',()=>{
   assert.equal(catalog.BOSSES.filter(b=>b.cycle==='weekly').length,56);
   assert.equal(catalog.BOSSES.filter(b=>b.cycle==='monthly').length,2);
+  assert.deepEqual([...new Set(catalog.BOSSES.filter(b=>b.cycle==='monthly').map(b=>b.group))],['blackmage']);
   const hardLotus=catalog.getBoss('lotus-hard');
   assert.equal(catalog.bossLabel(hardLotus),'困難史烏');
   assert.equal(catalog.crystalValue(hardLotus.price,3),30333333);
