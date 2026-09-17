@@ -14,8 +14,8 @@ test('new character flow only asks for the character name before NEXON import',(
 });
 
 test('equipment tab is API-backed and removes the unused manual analysis',()=>{
-  assert.match(app,/裝備資訊/);
   assert.match(app,/NEXON 目前裝備/);
+  assert.match(app,/equipment-card-grid/);
   assert.doesNotMatch(app,/手動裝備分析/);
 });
 
@@ -25,5 +25,9 @@ test('character detail uses the Yellow Bird House profile layout',()=>{
   assert.match(app,/class="profile-stats"/);
   assert.match(app,/class="profile-progress"/);
   assert.match(app,/← 回角色列表/);
+  for(const label of ['總覽','屬性','裝備','技能','萌獸','成長','Boss 實戰','備註 / 目標']) assert.match(app,new RegExp(`"${label}"`));
+  assert.match(app,/聯盟戰地/);
+  assert.match(app,/聯盟神器/);
+  assert.match(app,/武陵層數/);
   assert.doesNotMatch(app,/class="nexon-character"/);
 });

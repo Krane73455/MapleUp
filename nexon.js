@@ -42,17 +42,37 @@
     });
     return integer(item?.stat_value);
   }
-  function distill(ocid,basic,stat,equipment,now=new Date().toISOString()){
+  function distill(ocid,basic,stat,equipment,extras={},now=new Date().toISOString()){
+    if(typeof extras === 'string'){ now=extras; extras={}; }
+    const union=extras.union||{},artifact=extras.unionArtifact||{},dojang=extras.dojang||{};
+    const hyper=extras.hyperStat||{},activeHyper=hyper[`hyper_stat_preset_${hyper.use_preset_no||1}`]||[];
+    const ability=extras.ability||{};
+    const skillRows=[];
+    for(let grade=0;grade<=6;grade++) for(const skill of extras[`skill${grade}`]?.character_skill||[]) skillRows.push({
+      grade:String(grade),name:text(skill?.skill_name),level:integer(skill?.skill_level),icon:text(skill?.skill_icon),
+      effect:text(skill?.skill_effect),description:text(skill?.skill_description)
+    });
     return {
       ocid:text(ocid),syncedAt:now,source:'NEXON Open API - MapleStoryTaiwan',
       characterImage:text(basic?.character_image),worldName:text(basic?.world_name),guildName:text(basic?.character_guild_name),
       gender:text(basic?.character_gender),createdAt:text(basic?.character_date_create),experienceRate:text(basic?.character_exp_rate),
       name:text(basic?.character_name),job:text(basic?.character_class),level:integer(basic?.character_level),
       combatPower:findCombatPower(stat),
+      unionLevel:integer(union?.union_level),artifactLevel:integer(union?.union_artifact_level ?? artifact?.union_artifact_level),
+      dojangFloor:integer(dojang?.dojang_best_floor),
       stats:(stat?.final_stat || []).map(row=>({name:text(row?.stat_name),value:text(row?.stat_value)})).filter(row=>row.name),
+      hyperStats:(Array.isArray(activeHyper)?activeHyper:[]).map(row=>({name:text(row?.stat_type||row?.hyper_stat_type),level:integer(row?.stat_level),effect:text(row?.stat_increase)})).filter(row=>row.name),
+      ability:{activePreset:integer(ability?.preset_no)||1,remainFame:integer(ability?.remain_fame)||0,grade:text(ability?.ability_grade),presets:[1,2,3].map(no=>({no,grade:text(ability?.[`ability_preset_${no}`]?.ability_preset_grade),rows:(ability?.[`ability_preset_${no}`]?.ability_info||[]).map(row=>({slot:integer(row?.ability_no),grade:text(row?.ability_grade),effect:text(row?.ability_value)}))}))},
+      propensity:extras.propensity||{},skills:skillRows,
+      linkSkills:[...(extras.linkSkill?.character_link_skill||[]),...(extras.linkSkill?.character_owned_link_skill||[])].map(skill=>({name:text(skill?.skill_name),level:integer(skill?.skill_level),icon:text(skill?.skill_icon),effect:text(skill?.skill_effect),description:text(skill?.skill_description)})).filter(skill=>skill.name),
+      familiar:{slots:extras.familiar?.familiar_link_slot||[],info:extras.familiar?.familiar_info||[]},
+      symbols:(extras.symbols?.symbol||[]).map(symbol=>({name:text(symbol?.symbol_name),icon:text(symbol?.symbol_icon),level:integer(symbol?.symbol_level),force:text(symbol?.symbol_force),growth:text(symbol?.symbol_growth_count),required:text(symbol?.symbol_require_growth_count)})).filter(symbol=>symbol.name),
+      setEffects:extras.setEffect?.set_effect||[],syncWarnings:extras.errors||{},
       equipment:(equipment?.item_equipment || []).map(item=>({
         slot:text(item?.item_equipment_slot),name:text(item?.item_name),starforce:text(item?.starforce),
-        potentialGrade:text(item?.potential_option_grade),additionalPotentialGrade:text(item?.additional_potential_option_grade)
+        icon:text(item?.item_icon||item?.item_shape_icon),potentialGrade:text(item?.potential_option_grade),additionalPotentialGrade:text(item?.additional_potential_option_grade),
+        potentials:[item?.potential_option_1,item?.potential_option_2,item?.potential_option_3].map(text).filter(Boolean),
+        additionalPotentials:[item?.additional_potential_option_1,item?.additional_potential_option_2,item?.additional_potential_option_3].map(text).filter(Boolean)
       })).filter(item=>item.slot || item.name)
     };
   }
@@ -68,7 +88,19 @@
     const stat = await request('/character/stat',{ocid:id.ocid},apiKey.trim(),fetchImpl);
     onProgress('讀取裝備資料…');
     const equipment = await request('/character/item-equipment',{ocid:id.ocid},apiKey.trim(),fetchImpl);
-    return distill(id.ocid,basic,stat,equipment);
+    const optionalEndpoints=[
+      ['hyperStat','/character/hyper-stat',{}],['ability','/character/ability',{}],['propensity','/character/propensity',{}],
+      ['symbols','/character/symbol-equipment',{}],['setEffect','/character/set-effect',{}],['dojang','/character/dojang',{}],
+      ['familiar','/character/familiar',{}],['linkSkill','/character/link-skill',{}],['union','/user/union',{}],['unionArtifact','/user/union-artifact',{}],
+      ...Array.from({length:7},(_,grade)=>[`skill${grade}`,'/character/skill',{character_skill_grade:grade}])
+    ];
+    const extras={errors:{}};
+    for(const [index,[key,path,query]] of optionalEndpoints.entries()){
+      onProgress(`讀取完整角色資料 ${index+1}/${optionalEndpoints.length}…`);
+      try{extras[key]=await request(path,{ocid:id.ocid,...query},apiKey.trim(),fetchImpl);}
+      catch(error){extras.errors[key]=error.message;}
+    }
+    return distill(id.ocid,basic,stat,equipment,extras);
   }
   function apply(data,characterId,snapshot,date){
     const next = JSON.parse(JSON.stringify(data));

@@ -49,7 +49,16 @@
         "job": "暗夜行者",
         "level": 280,
         "combatPower": 20800000,
+        "unionLevel": 10368,
+        "artifactLevel": 52,
+        "dojangFloor": 70,
         "stats": [{"name": "戰鬥力", "value": "20800000"}],
+        "hyperStats": [{"name": "傷害", "level": 10, "effect": "30%"}],
+        "ability": {"activePreset": 1, "remainFame": 0, "grade": "傳說", "presets": []},
+        "skills": [],
+        "linkSkills": [],
+        "familiar": {"slots": [], "info": []},
+        "symbols": [],
         "equipment": [{"slot": "武器", "name": "示範武器", "starforce": "22", "potentialGrade": "傳說", "additionalPotentialGrade": "罕見"}]
       }
     }

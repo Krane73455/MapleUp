@@ -11,7 +11,20 @@ test('distills Taiwan API data and finds combat power',()=>{
   assert.equal(snapshot.gender,'女');
   assert.equal(snapshot.createdAt,'2020-01-02T00:00+08:00');
   assert.equal(snapshot.experienceRate,'37.5');
-  assert.deepEqual(snapshot.equipment[0],{slot:'武器',name:'測試弓',starforce:'22',potentialGrade:'傳說',additionalPotentialGrade:''});
+  assert.deepEqual(snapshot.equipment[0],{slot:'武器',name:'測試弓',starforce:'22',icon:'',potentialGrade:'傳說',additionalPotentialGrade:'',potentials:[],additionalPotentials:[]});
+});
+
+test('distills Yellow Bird House summary and attribute panels',()=>{
+  const snapshot=nexon.distill('ocid',{character_name:'鳥鳥',character_class:'箭神',character_level:281},{final_stat:[]},{item_equipment:[]},{
+    union:{union_level:10368,union_artifact_level:52},dojang:{dojang_best_floor:70},
+    hyperStat:{use_preset_no:1,hyper_stat_preset_1:[{stat_type:'傷害',stat_level:10,stat_increase:'30%'}]},
+    ability:{preset_no:1,remain_fame:123,ability_preset_1:{ability_preset_grade:'傳說',ability_info:[{ability_no:1,ability_grade:'傳說',ability_value:'BOSS 傷害 +20%'}]}}
+  });
+  assert.equal(snapshot.unionLevel,10368);
+  assert.equal(snapshot.artifactLevel,52);
+  assert.equal(snapshot.dojangFloor,70);
+  assert.deepEqual(snapshot.hyperStats,[{name:'傷害',level:10,effect:'30%'}]);
+  assert.equal(snapshot.ability.presets[0].rows[0].effect,'BOSS 傷害 +20%');
 });
 
 test('sync preserves manual data and only appends changed power',()=>{

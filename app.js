@@ -289,12 +289,15 @@ function renderCharacterDetail(){
   if(!c){ currentView="characters"; return render(); }
   pageTitle.textContent = c.name;
   const snapshot=c.nexon||{};
-  const status=c.archived?{label:'已封存',cls:'warn'}:getStatus(c);
   const exp=Number(snapshot.experienceRate);
   const expRate=Number.isFinite(exp)?Math.max(0,Math.min(100,exp)):null;
   const createdDate=snapshot.createdAt?String(snapshot.createdAt).slice(0,10).replaceAll('-','/'):'—';
+  const gender=String(snapshot.gender||'');
+  if(characterTab==='stats')characterTab='attributes';
+  if(characterTab==='power')characterTab='growth';
   const tabs = [
-    ["overview","📊 總覽"],["stats","📋 能力面板"],["equipment","🛡️ 裝備資訊"],["power","📈 戰力紀錄"]
+    ["overview","總覽"],["attributes","屬性"],["equipment","裝備"],["skills","技能"],
+    ["familiar","萌獸"],["growth","成長"],["boss","Boss 實戰"],["notes","備註 / 目標"]
   ];
   view.innerHTML = `
     <div class="character-detail-toolbar">
@@ -309,18 +312,17 @@ function renderCharacterDetail(){
       </div>
       <div class="profile-content">
         <div class="profile-heading">
-          <div><p class="eyebrow">Character profile</p><h3>${esc(c.name)}</h3><div class="profile-meta"><span>${esc(snapshot.worldName||'伺服器未同步')}</span>${snapshot.gender?`<span>${esc(snapshot.gender)}</span>`:''}<span>創角 ${esc(createdDate)}</span></div></div>
-          <span class="badge ${status.cls}">${esc(status.label)}</span>
+          <div class="profile-name-line"><h3>${esc(c.name)}</h3><span>創角 ${esc(createdDate)}</span></div>
+          ${gender?`<span class="gender-icon ${gender.includes('女')?'female':'male'}" title="${esc(gender)}">${gender.includes('女')?'♀':'♂'}</span>`:''}
         </div>
         <div class="profile-stats">
-          <div class="profile-stat"><small>目前戰力</small><strong>${fmtPower(c.currentPower)}</strong></div>
-          <div class="profile-stat"><small>歷史最高</small><strong>${fmtPower(c.maxPower)}</strong></div>
-          <div class="profile-stat"><small>指定 Boss</small><strong>${esc(c.targetBoss||'未指定')}</strong></div>
-          <div class="profile-stat"><small>最佳時間</small><strong>${esc(c.bestTime||'未測')}</strong></div>
+          <div class="profile-stat"><small>戰鬥力</small><strong>${Number(c.currentPower||0).toLocaleString('zh-TW')}</strong>${powerDelta(c)}</div>
+          <div class="profile-stat"><small>聯盟戰地</small><strong>${snapshot.unionLevel==null?'—':Number(snapshot.unionLevel).toLocaleString('zh-TW')}</strong></div>
+          <div class="profile-stat"><small>聯盟神器</small><strong>${snapshot.artifactLevel==null?'—':`Lv. ${esc(snapshot.artifactLevel)}`}</strong></div>
+          <div class="profile-stat"><small>武陵層數</small><strong>${snapshot.dojangFloor==null?'—':`${esc(snapshot.dojangFloor)} 層`}</strong></div>
         </div>
         <div class="profile-level-row"><strong>Lv.${esc(c.level)}</strong>${expRate===null?'':`<span>${esc(snapshot.experienceRate)}%</span>`}</div>
         ${expRate===null?'':`<div class="profile-progress" aria-label="經驗值 ${esc(snapshot.experienceRate)}%"><span style="width:${expRate}%"></span></div>`}
-        <p class="profile-sync">最近同步：${esc(formatSyncTime(snapshot.syncedAt))}</p>
       </div>
     </section>
     <div class="tabs character-tabs" role="tablist" aria-label="角色資料分類">${tabs.map(([k,l])=>`<button class="tab-btn ${characterTab===k?"active":""}" role="tab" aria-selected="${characterTab===k}" data-tab="${esc(k)}">${l}</button>`).join("")}</div>
@@ -341,39 +343,58 @@ function renderCharacterDetail(){
   };
   renderCharacterTab(c);
 }
+function powerDelta(c){
+  const rows=c.powerHistory||[];
+  if(rows.length<2)return '';
+  const delta=Number(rows.at(-1).value)-Number(rows.at(-2).value);
+  if(!delta)return '';
+  return `<span class="profile-delta ${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${Math.abs(delta).toLocaleString('zh-TW')}</span>`;
+}
+function emptyApi(message){return `<div class="empty">${esc(message)}；按上方「NEXON 同步」即可更新。</div>`;}
+function skillCard(skill){return `<article class="skill-card">${skill.icon?`<img src="${esc(skill.icon)}" alt="" loading="lazy" />`:''}<div><strong>${esc(skill.name||'未命名技能')}</strong><small>Lv. ${esc(skill.level??'—')}</small>${skill.effect?`<p>${esc(skill.effect)}</p>`:''}</div></article>`;}
 function renderCharacterTab(c){
   const host = document.querySelector("#characterTab");
+  const snapshot=c.nexon||{};
   if(characterTab==="overview"){
     host.innerHTML = `
-    <div class="detail-grid">
-      <div class="panel"><div class="panel-head"><div><h3>📈 戰力趨勢</h3><p>保存每次抓取資料，最高戰力另外獨立保留。</p></div></div>${powerChart(c)}</div>
-      <div class="panel"><div class="panel-head"><div><h3>🎯 目前判定</h3></div></div>
-        <div class="callout"><strong>${getStatus(c).label === "停手" ? "✅ 已達停手條件" : getStatus(c).label === "待測" ? "🟡 先測指定 Boss" : "🔥 仍需強化"}</strong><p class="muted">${esc(c.notes || "尚未填寫備註")}</p></div>
-      </div>
-    </div>`;
+      <div class="grid overview-grid">
+        <div class="panel"><div class="panel-head"><div><h3>角色狀態</h3><p>MapleUp 打王分身判定</p></div><span class="badge ${c.archived?'warn':getStatus(c).cls}">${esc(c.archived?'已封存':getStatus(c).label)}</span></div><div class="overview-facts"><div><small>指定 Boss</small><strong>${esc(c.targetBoss||'未指定')}</strong></div><div><small>最佳時間</small><strong>${esc(c.bestTime||'未測')}</strong></div><div><small>歷史最高戰力</small><strong>${fmtPower(c.maxPower)}</strong></div></div></div>
+        <div class="panel"><div class="panel-head"><div><h3>下一步</h3><p>角色備註與強化方向</p></div></div><div class="callout"><strong>${getStatus(c).label==='停手'?'✅ 已達停手條件':getStatus(c).label==='待測'?'🟡 先測指定 Boss':'🔥 仍需強化'}</strong><p class="muted">${esc(c.notes||'尚未填寫備註')}</p></div></div>
+      </div>`;
   }
-  if(characterTab==="stats"){
-    const apiStats=c.nexon?.stats || [];
-    host.innerHTML = `${apiStats.length?`<div class="panel"><div class="panel-head"><div><h3>🔄 NEXON 能力值</h3><p>${esc(formatSyncTime(c.nexon.syncedAt))} 同步；資料來自 NEXON Open API。</p></div></div><div class="stat-list">${apiStats.map(row=>`<div class="stat-item"><span>${esc(row.name)}</span><strong>${esc(row.value)}</strong></div>`).join('')}</div></div>`:''}<div class="panel"><div class="panel-head"><div><h3>📋 手動能力面板</h3><p>原本的手動資料會保留，不會被 API 覆蓋。</p></div></div>
-      <div class="stat-list">
-        <div class="stat-item"><span>戰鬥力</span><strong>${c.currentPower.toLocaleString()}</strong></div>
-        ${Object.entries(c.stats||{}).map(([k,v])=>`<div class="stat-item"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join("")}
-      </div></div>`;
+  if(characterTab==="attributes"){
+    const apiStats=snapshot.stats||[],hyper=snapshot.hyperStats||[],ability=snapshot.ability||{};
+    const active=ability.presets?.find(row=>row.no===ability.activePreset)||ability.presets?.[0];
+    host.innerHTML = `<div class="panel"><div class="panel-head"><div><h3>綜合能力值</h3><p>${esc(formatSyncTime(snapshot.syncedAt))} 同步</p></div></div>${apiStats.length?`<div class="attribute-grid">${apiStats.map(row=>`<div class="attribute-card"><small>${esc(row.name)}</small><strong>${esc(row.value)}</strong></div>`).join('')}</div>`:emptyApi('尚無綜合能力值')}</div>
+      <div class="attribute-bottom"><div class="panel"><h3>極限屬性</h3>${hyper.length?`<div class="table-wrap"><table><thead><tr><th>屬性</th><th>等級</th><th>效果</th></tr></thead><tbody>${hyper.map(row=>`<tr><td>${esc(row.name)}</td><td>${esc(row.level??'—')}</td><td>${esc(row.effect||'—')}</td></tr>`).join('')}</tbody></table></div>`:emptyApi('尚無極限屬性')}</div>
+      <div class="panel"><h3>內在潛能</h3>${active?`<div class="ability-head"><span class="tab-btn active">預設 ${esc(active.no)} · 使用中</span><span class="muted">等級：${esc(active.grade||ability.grade||'—')}</span></div><div class="table-wrap"><table><thead><tr><th>欄位</th><th>等級</th><th>效果</th></tr></thead><tbody>${active.rows.map(row=>`<tr><td>${esc(row.slot??'—')}</td><td>${esc(row.grade||'—')}</td><td>${esc(row.effect||'—')}</td></tr>`).join('')||'<tr><td colspan="3">沒有內在潛能資料</td></tr>'}</tbody></table></div><p class="muted">目前名聲值：${Number(ability.remainFame||0).toLocaleString('zh-TW')}</p>`:emptyApi('尚無內在潛能')}</div></div>`;
   }
   if(characterTab==="equipment"){
-    const apiEquipment=c.nexon?.equipment || [];
+    const apiEquipment=snapshot.equipment || [];
     const starred=apiEquipment.filter(item=>Number(item.starforce)>0).length;
     const legendary=apiEquipment.filter(item=>String(item.potentialGrade).includes('傳說')).length;
     const additional=apiEquipment.filter(item=>item.additionalPotentialGrade).length;
-    host.innerHTML = apiEquipment.length?`<div class="grid metrics equipment-metrics"><div class="metric"><small>已同步裝備</small><strong>${apiEquipment.length}</strong></div><div class="metric"><small>有星力</small><strong>${starred}</strong></div><div class="metric"><small>傳說潛能</small><strong>${legendary}</strong></div><div class="metric"><small>有附加潛能</small><strong>${additional}</strong></div></div><div class="panel"><div class="panel-head"><div><h3>🛡️ NEXON 目前裝備</h3><p>${esc(formatSyncTime(c.nexon.syncedAt))} 同步；顯示星力、潛能與附加潛能等級。</p></div></div><div class="equipment-list">${apiEquipment.map(item=>`<div class="equipment-item"><div><strong>${esc(item.slot || '裝備')}</strong><div class="muted">${esc(item.name || '—')}</div></div><span>${esc(equipmentLabel(item))}</span></div>`).join('')}</div></div>`:`<div class="panel"><div class="panel-head"><div><h3>🛡️ NEXON 裝備資訊</h3><p>同步角色後會自動顯示目前裝備。</p></div></div><div class="empty">尚未同步裝備資料，請按上方「NEXON 同步」。</div></div>`;
+    host.innerHTML = apiEquipment.length?`<div class="grid metrics equipment-metrics"><div class="metric"><small>已同步裝備</small><strong>${apiEquipment.length}</strong></div><div class="metric"><small>有星力</small><strong>${starred}</strong></div><div class="metric"><small>傳說潛能</small><strong>${legendary}</strong></div><div class="metric"><small>有附加潛能</small><strong>${additional}</strong></div></div><div class="panel"><div class="panel-head"><div><h3>NEXON 目前裝備</h3><p>${esc(formatSyncTime(snapshot.syncedAt))} 同步</p></div></div><div class="equipment-card-grid">${apiEquipment.map(item=>`<article class="equipment-card">${item.icon?`<img src="${esc(item.icon)}" alt="" loading="lazy" />`:''}<div><strong>${esc(item.name||item.slot||'裝備')}</strong><small>${esc(item.slot||'')} · ${esc(equipmentLabel(item))}</small>${[...(item.potentials||[]),...(item.additionalPotentials||[])].length?`<p>${[...(item.potentials||[]),...(item.additionalPotentials||[])].map(esc).join('<br>')}</p>`:''}</div></article>`).join('')}</div></div>`:`<div class="panel">${emptyApi('尚未同步裝備資料')}</div>`;
   }
-  if(characterTab==="power"){
-    host.innerHTML = `<div class="panel"><div class="panel-head"><div><h3>📈 戰力紀錄</h3><p>目前戰力與最高戰力分開保存；NEXON 同步若有變動會新增紀錄。</p></div></div>
-      ${powerChart(c)}
-      <table><thead><tr><th>日期</th><th>戰力</th><th>是否最高</th></tr></thead><tbody>
-      ${(c.powerHistory||[]).slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${x.value.toLocaleString()}</td><td>${x.value===c.maxPower?"🏆":""}</td></tr>`).join("")}
-      </tbody></table>
-    </div>`;
+  if(characterTab==="skills"){
+    const skills=snapshot.skills||[],links=snapshot.linkSkills||[];
+    host.innerHTML=`<div class="panel"><h3>技能</h3>${skills.length?Array.from({length:7},(_,grade)=>{const rows=skills.filter(skill=>skill.grade===String(grade));return rows.length?`<details class="skill-group" ${grade>=5?'open':''}><summary>${grade} 轉技能 · ${rows.length}</summary><div class="skill-grid">${rows.map(skillCard).join('')}</div></details>`:''}).join(''):emptyApi('尚未同步技能資料')}</div><div class="panel"><h3>連結技能</h3>${links.length?`<div class="skill-grid">${links.map(skillCard).join('')}</div>`:emptyApi('尚未同步連結技能')}</div>`;
+  }
+  if(characterTab==="familiar"){
+    const familiar=snapshot.familiar||{},slots=Array.isArray(familiar.slots)?familiar.slots:[],info=Array.isArray(familiar.info)?familiar.info:[];
+    host.innerHTML=`<div class="panel"><h3>萌獸連結欄位</h3>${slots.length?`<div class="familiar-grid">${slots.map(slot=>`<article class="familiar-card"><div><strong>${String(slot.slot_id||'').toLowerCase()==='vip'?'VIP 欄位':`欄位 ${esc(slot.slot_id||'—')}`}</strong><span class="badge ${['true','1','active','使用中'].includes(String(slot.active_flag||'').toLowerCase())?'good':'warn'}">${['true','1','active','使用中'].includes(String(slot.active_flag||'').toLowerCase())?'使用中':'未啟用'}</span></div><p>${esc(slot.familiar_name||'尚未設定萌獸')}</p></article>`).join('')}</div>`:emptyApi('尚無萌獸連結欄位')}</div><div class="panel"><h3>持有萌獸</h3>${info.length?`<div class="familiar-grid">${info.map((item,index)=>`<article class="familiar-card"><strong>${esc(item.familiar_name||item.name||`萌獸 ${index+1}`)}</strong><p>${esc(item.familiar_grade||'—')} · Lv.${esc(item.familiar_level??'—')}</p></article>`).join('')}</div>`:emptyApi('尚無持有萌獸資料')}</div>`;
+  }
+  if(characterTab==="growth"){
+    host.innerHTML=`<div class="panel"><div class="panel-head"><div><h3>戰力成長</h3><p>目前戰力與歷史最高分開保存</p></div></div>${powerChart(c)}<div class="table-wrap"><table><thead><tr><th>日期</th><th>戰力</th><th>是否最高</th></tr></thead><tbody>${(c.powerHistory||[]).slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${x.value.toLocaleString('zh-TW')}</td><td>${x.value===c.maxPower?'🏆':''}</td></tr>`).join('')}</tbody></table></div></div>${snapshot.symbols?.length?`<div class="panel"><h3>ARC / AUT 符文</h3><div class="symbol-grid">${snapshot.symbols.map(symbol=>`<article class="skill-card">${symbol.icon?`<img src="${esc(symbol.icon)}" alt="" loading="lazy" />`:''}<div><strong>${esc(symbol.name)}</strong><small>Lv. ${esc(symbol.level??'—')} · ${esc(symbol.force||'—')}</small></div></article>`).join('')}</div></div>`:''}`;
+  }
+  if(characterTab==="boss"){
+    const rows=data.crystalWeeks.filter(row=>row.characterId===c.id).slice().sort((a,b)=>String(b.weekStart||'').localeCompare(String(a.weekStart||''))).slice(0,12);
+    host.innerHTML=`<div class="attribute-bottom"><div class="panel"><div class="panel-head"><div><h3>Boss 實戰</h3><p>MapleUp 目前指定目標</p></div><button id="editBossRecord" class="primary-btn">編輯 Boss 資料</button></div><div class="overview-facts"><div><small>指定 Boss</small><strong>${esc(c.targetBoss||'未指定')}</strong></div><div><small>最佳時間</small><strong>${esc(c.bestTime||'未測')}</strong></div><div><small>停手標準</small><strong>&lt; ${esc(data.settings.stopUnderMinutes)}:00</strong></div></div></div><div class="panel"><h3>最近結晶紀錄</h3>${rows.length?`<div class="table-wrap"><table><thead><tr><th>日期</th><th>Boss</th><th>收入</th><th>完成</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${esc(row.week)}</td><td>${esc(row.boss)}</td><td>${row.income.toLocaleString('zh-TW')}</td><td>${row.done?'✓':'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">尚無這個角色的結晶紀錄。</div>'}</div></div>`;
+    document.querySelector('#editBossRecord').onclick=()=>openCharacter(c);
+  }
+  if(characterTab==="notes"){
+    host.innerHTML=`<div class="attribute-bottom"><div class="panel"><h3>養成目標</h3><div class="callout"><strong>${esc(c.targetBoss||'尚未指定 Boss')}</strong><p class="muted">目標通關時間：${esc(c.bestTime||'尚未測試')}</p></div></div><div class="panel"><div class="panel-head"><div><h3>角色備註</h3></div><button id="editCharacterNotes" class="primary-btn">編輯</button></div><div class="note-body">${esc(c.notes||'尚未填寫備註')}</div></div></div>`;
+    document.querySelector('#editCharacterNotes').onclick=()=>openCharacter(c);
   }
 }
 function powerChart(c){
