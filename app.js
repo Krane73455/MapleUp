@@ -288,13 +288,44 @@ function renderCharacterDetail(){
   const c = data.characters.find(x=>x.id===currentCharacterId);
   if(!c){ currentView="characters"; return render(); }
   pageTitle.textContent = c.name;
+  const snapshot=c.nexon||{};
+  const status=c.archived?{label:'已封存',cls:'warn'}:getStatus(c);
+  const exp=Number(snapshot.experienceRate);
+  const expRate=Number.isFinite(exp)?Math.max(0,Math.min(100,exp)):null;
+  const createdDate=snapshot.createdAt?String(snapshot.createdAt).slice(0,10).replaceAll('-','/'):'—';
   const tabs = [
     ["overview","📊 總覽"],["stats","📋 能力面板"],["equipment","🛡️ 裝備資訊"],["power","📈 戰力紀錄"]
   ];
   view.innerHTML = `
-    <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色</button><button id="archiveCharacter" class="ghost-btn">${c.archived?'重新啟用':'封存角色'}</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
-    <div class="tabs">${tabs.map(([k,l])=>`<button class="tab-btn ${characterTab===k?"active":""}" data-tab="${esc(k)}">${l}</button>`).join("")}</div>
+    <div class="character-detail-toolbar">
+      <button id="backToCharacters" class="ghost-btn">← 回角色列表</button>
+      <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色</button><button id="archiveCharacter" class="ghost-btn">${c.archived?'重新啟用':'封存角色'}</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
+    </div>
+    <section class="character-profile">
+      <div class="profile-portrait">
+        <strong class="profile-job">${esc(c.job||'—')}</strong>
+        ${snapshot.characterImage?`<img src="${esc(snapshot.characterImage)}" alt="${esc(c.name)} 角色圖片" />`:`<div class="profile-avatar-fallback">${esc(c.name.slice(0,1))}</div>`}
+        <span class="profile-guild">${esc(snapshot.guildName||'無公會資料')}</span>
+      </div>
+      <div class="profile-content">
+        <div class="profile-heading">
+          <div><p class="eyebrow">Character profile</p><h3>${esc(c.name)}</h3><div class="profile-meta"><span>${esc(snapshot.worldName||'伺服器未同步')}</span>${snapshot.gender?`<span>${esc(snapshot.gender)}</span>`:''}<span>創角 ${esc(createdDate)}</span></div></div>
+          <span class="badge ${status.cls}">${esc(status.label)}</span>
+        </div>
+        <div class="profile-stats">
+          <div class="profile-stat"><small>目前戰力</small><strong>${fmtPower(c.currentPower)}</strong></div>
+          <div class="profile-stat"><small>歷史最高</small><strong>${fmtPower(c.maxPower)}</strong></div>
+          <div class="profile-stat"><small>指定 Boss</small><strong>${esc(c.targetBoss||'未指定')}</strong></div>
+          <div class="profile-stat"><small>最佳時間</small><strong>${esc(c.bestTime||'未測')}</strong></div>
+        </div>
+        <div class="profile-level-row"><strong>Lv.${esc(c.level)}</strong>${expRate===null?'':`<span>${esc(snapshot.experienceRate)}%</span>`}</div>
+        ${expRate===null?'':`<div class="profile-progress" aria-label="經驗值 ${esc(snapshot.experienceRate)}%"><span style="width:${expRate}%"></span></div>`}
+        <p class="profile-sync">最近同步：${esc(formatSyncTime(snapshot.syncedAt))}</p>
+      </div>
+    </section>
+    <div class="tabs character-tabs" role="tablist" aria-label="角色資料分類">${tabs.map(([k,l])=>`<button class="tab-btn ${characterTab===k?"active":""}" role="tab" aria-selected="${characterTab===k}" data-tab="${esc(k)}">${l}</button>`).join("")}</div>
     <div id="characterTab"></div>`;
+  document.querySelector('#backToCharacters').onclick=()=>{currentCharacterId=null;currentView='characters';render();};
   document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>{characterTab=b.dataset.tab;renderCharacterDetail()});
   document.querySelector('#editCharacter').onclick=()=>openCharacter(c);
   document.querySelector('#syncCharacter').onclick=event=>syncOneCharacter(c.id,event.currentTarget);
@@ -314,17 +345,10 @@ function renderCharacterTab(c){
   const host = document.querySelector("#characterTab");
   if(characterTab==="overview"){
     host.innerHTML = `
-    ${c.nexon?.characterImage ? `<div class="nexon-character"><img src="${esc(c.nexon.characterImage)}" alt="${esc(c.name)} 角色圖片" /><div><strong>${esc(c.name)} · ${esc(c.job)} Lv.${c.level}</strong><small>最近同步：${esc(formatSyncTime(c.nexon.syncedAt))}${c.nexon.worldName?` · ${esc(c.nexon.worldName)}`:''}</small></div></div>`:''}
-    <div class="grid metrics">
-      <div class="metric"><small>🏆 歷史最高</small><strong>${fmtPower(c.maxPower)}</strong></div>
-      <div class="metric"><small>⚔️ 目前戰力</small><strong>${fmtPower(c.currentPower)}</strong></div>
-      <div class="metric"><small>👹 指定 Boss</small><strong style="font-size:20px">${esc(c.targetBoss || "—")}</strong></div>
-      <div class="metric"><small>⏱️ 最佳時間</small><strong>${esc(c.bestTime || "未測")}</strong></div>
-    </div>
     <div class="detail-grid">
       <div class="panel"><div class="panel-head"><div><h3>📈 戰力趨勢</h3><p>保存每次抓取資料，最高戰力另外獨立保留。</p></div></div>${powerChart(c)}</div>
       <div class="panel"><div class="panel-head"><div><h3>🎯 目前判定</h3></div></div>
-        <div class="callout"><strong>${getStatus(c).label === "停手" ? "✅ 已達停手條件" : getStatus(c).label === "待測" ? "🟡 先測指定 Boss" : "🔥 仍需強化"}</strong><p class="muted">${esc(c.notes || "")}</p></div>
+        <div class="callout"><strong>${getStatus(c).label === "停手" ? "✅ 已達停手條件" : getStatus(c).label === "待測" ? "🟡 先測指定 Boss" : "🔥 仍需強化"}</strong><p class="muted">${esc(c.notes || "尚未填寫備註")}</p></div>
       </div>
     </div>`;
   }

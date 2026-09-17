@@ -3,11 +3,14 @@ const assert=require('node:assert/strict');
 const nexon=require('../nexon.js');
 
 test('distills Taiwan API data and finds combat power',()=>{
-  const snapshot=nexon.distill('ocid',{character_name:'鳥鳥',character_class:'箭神',character_level:281,world_name:'殺人鯨',character_image:'https://example.test/a.png'},
+  const snapshot=nexon.distill('ocid',{character_name:'鳥鳥',character_class:'箭神',character_level:281,world_name:'殺人鯨',character_image:'https://example.test/a.png',character_gender:'女',character_date_create:'2020-01-02T00:00+08:00',character_exp_rate:'37.5'},
     {final_stat:[{stat_name:'戰鬥力',stat_value:'12,345,678'},{stat_name:'BOSS傷害',stat_value:'400.00'}]},
     {item_equipment:[{item_equipment_slot:'武器',item_name:'測試弓',starforce:'22',potential_option_grade:'傳說'}]},'2026-09-17T00:00:00.000Z');
   assert.equal(snapshot.combatPower,12345678);
   assert.equal(snapshot.level,281);
+  assert.equal(snapshot.gender,'女');
+  assert.equal(snapshot.createdAt,'2020-01-02T00:00+08:00');
+  assert.equal(snapshot.experienceRate,'37.5');
   assert.deepEqual(snapshot.equipment[0],{slot:'武器',name:'測試弓',starforce:'22',potentialGrade:'傳說',additionalPotentialGrade:''});
 });
 

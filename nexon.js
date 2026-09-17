@@ -46,6 +46,7 @@
     return {
       ocid:text(ocid),syncedAt:now,source:'NEXON Open API - MapleStoryTaiwan',
       characterImage:text(basic?.character_image),worldName:text(basic?.world_name),guildName:text(basic?.character_guild_name),
+      gender:text(basic?.character_gender),createdAt:text(basic?.character_date_create),experienceRate:text(basic?.character_exp_rate),
       name:text(basic?.character_name),job:text(basic?.character_class),level:integer(basic?.character_level),
       combatPower:findCombatPower(stat),
       stats:(stat?.final_stat || []).map(row=>({name:text(row?.stat_name),value:text(row?.stat_value)})).filter(row=>row.name),

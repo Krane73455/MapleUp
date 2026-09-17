@@ -18,3 +18,12 @@ test('equipment tab is API-backed and removes the unused manual analysis',()=>{
   assert.match(app,/NEXON 目前裝備/);
   assert.doesNotMatch(app,/手動裝備分析/);
 });
+
+test('character detail uses the Yellow Bird House profile layout',()=>{
+  assert.match(app,/class="character-profile"/);
+  assert.match(app,/class="profile-portrait"/);
+  assert.match(app,/class="profile-stats"/);
+  assert.match(app,/class="profile-progress"/);
+  assert.match(app,/← 回角色列表/);
+  assert.doesNotMatch(app,/class="nexon-character"/);
+});
