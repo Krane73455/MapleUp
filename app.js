@@ -562,12 +562,31 @@ function openCharacter(c=null){
   if(storageProblem){notify(storageProblem);return;}
   editingId=c?.id || null;form.reset();
   document.querySelector('#formError').hidden=true;
+  document.querySelector('#nexonQuickAdd').hidden=Boolean(c);
   document.querySelector('#characterDialogTitle').textContent=c?'編輯角色／更新戰力':'新增角色';
   document.querySelector('#saveCharacterBtn').textContent=c?'儲存變更':'新增';
   for(const name of ['name','job','level','currentPower','targetBoss','bestTime','notes']){
     if(c) form.elements.namedItem(name).value=c[name];
   }
   dialog.showModal();
+}
+async function createCharacterFromNexon(button){
+  const error=document.querySelector('#formError');
+  error.hidden=true;
+  const name=String(form.elements.namedItem('name').value).trim();
+  if(!name){error.textContent='請先輸入角色名稱。';error.hidden=false;form.elements.namedItem('name').focus();return;}
+  const key=savedApiKey();
+  if(!key){error.textContent='請先到「設定」儲存 NEXON API Key。';error.hidden=false;return;}
+  const original=button.textContent;
+  button.disabled=true;
+  try {
+    const snapshot=await NexonSync.fetchCharacter(name,key,message=>{button.textContent=message;});
+    const id=crypto.randomUUID();
+    commitData(NexonSync.create(data,snapshot,localDate(),id));
+    dialog.close();currentCharacterId=id;currentView='character';characterTab='overview';render();
+    notify(`${snapshot.name} 已從 NEXON 建立；接下來可設定目標 Boss 與通關時間。`);
+  } catch(fetchError){error.textContent=fetchError.message;error.hidden=false;}
+  finally {if(button.isConnected){button.disabled=false;button.textContent=original;}}
 }
 function openCrystal(row=null){
   if(storageProblem){notify(storageProblem);return;}
@@ -595,6 +614,7 @@ function openCrystal(row=null){
 document.querySelectorAll('[data-close-character]').forEach(btn=>btn.onclick=()=>dialog.close());
 document.querySelectorAll('[data-close-crystal]').forEach(btn=>btn.onclick=()=>crystalDialog.close());
 document.querySelector('#addCharacterBtn').onclick=()=>openCharacter();
+document.querySelector('#importCharacterBtn').onclick=event=>createCharacterFromNexon(event.currentTarget);
 form.addEventListener('submit',event=>{
   event.preventDefault();
   try {

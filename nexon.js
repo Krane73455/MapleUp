@@ -89,7 +89,25 @@
     }
     return next;
   }
-  const api = {BASE_URL,request,findCombatPower,distill,fetchCharacter,apply};
+  function create(data,snapshot,date,id){
+    const name=text(snapshot?.name).trim();
+    const job=text(snapshot?.job).trim();
+    const level=snapshot?.level;
+    if(!name || !job || !Number.isSafeInteger(level) || level < 1) throw new Error('NEXON 回傳的角色資料不完整，請稍後再試。');
+    const duplicate=data.characters.find(character=>
+      (snapshot.ocid && character.nexon?.ocid === snapshot.ocid) || character.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if(duplicate) throw new Error(`「${duplicate.name}」已在角色列表中，請開啟該角色後使用 NEXON 同步。`);
+    const combatPower=Number.isSafeInteger(snapshot.combatPower) && snapshot.combatPower >= 0 ? snapshot.combatPower : 0;
+    const next=JSON.parse(JSON.stringify(data));
+    next.characters.push({
+      id,name,job,level,currentPower:combatPower,maxPower:combatPower,targetBoss:'',bestTime:'',notes:'',
+      stats:{'主屬性':'-','Boss 傷害':'-','無視防禦':'-','ARC':'-','AUT':'-'},equipment:[],
+      powerHistory:combatPower?[{date,value:combatPower}]:[],nexon:snapshot
+    });
+    return next;
+  }
+  const api = {BASE_URL,request,findCombatPower,distill,fetchCharacter,apply,create};
   if(typeof module !== 'undefined' && module.exports) module.exports=api;
   else root.NexonSync=api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

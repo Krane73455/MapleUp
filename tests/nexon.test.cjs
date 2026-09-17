@@ -24,3 +24,17 @@ test('sync preserves manual data and only appends changed power',()=>{
   next=nexon.apply(next,'c1',snapshot,'2026-09-17');
   assert.equal(next.characters[0].powerHistory.length,2);
 });
+
+test('creates a fully synced character and rejects duplicate name or ocid',()=>{
+  const seed={characters:[],crystalWeeks:[],settings:{stopUnderMinutes:30}};
+  const snapshot={ocid:'ocid-1',name:'鳥鳥',job:'箭神',level:281,combatPower:12345678,syncedAt:'now',stats:[],equipment:[]};
+  const next=nexon.create(seed,snapshot,'2026-09-17','c1');
+  assert.equal(next.characters[0].name,'鳥鳥');
+  assert.equal(next.characters[0].currentPower,12345678);
+  assert.equal(next.characters[0].maxPower,12345678);
+  assert.deepEqual(next.characters[0].powerHistory,[{date:'2026-09-17',value:12345678}]);
+  assert.equal(next.characters[0].nexon.ocid,'ocid-1');
+  assert.equal(seed.characters.length,0);
+  assert.throws(()=>nexon.create(next,{...snapshot,ocid:'other'},'2026-09-17','c2'),/已在角色列表/);
+  assert.throws(()=>nexon.create(next,{...snapshot,name:'新名字'},'2026-09-17','c2'),/已在角色列表/);
+});
