@@ -18,6 +18,7 @@
       if(!object(c) || !text(c.id) || !c.id || ids.has(c.id) || !text(c.name) || !c.name.trim() ||
          !text(c.job) || !c.job.trim() || !number(c.level) || c.level < 1 || !number(c.currentPower) || !number(c.maxPower) ||
          !text(c.targetBoss) || !text(c.bestTime) || !text(c.notes) ||
+         (c.archived !== undefined && typeof c.archived !== 'boolean') ||
          (c.stats !== undefined && (!object(c.stats) || Object.values(c.stats).some(v=>!text(v) && !(typeof v === 'number' && Number.isFinite(v))))) ||
          (c.equipment !== undefined && (!Array.isArray(c.equipment) || c.equipment.some(e=>!object(e) || !text(e.slot) || !text(e.grade) || !text(e.note)))) ||
          (c.powerHistory !== undefined && (!Array.isArray(c.powerHistory) || c.powerHistory.some(h=>!object(h) || !text(h.date) || !number(h.value)))))
@@ -32,6 +33,10 @@
          (row.boss !== undefined && !text(row.boss)) ||
          (row.weekStart !== undefined && (!text(row.weekStart) || !/^\d{4}-\d{2}-\d{2}$/.test(row.weekStart))) ||
          (row.notes !== undefined && !text(row.notes))) throw new Error('結晶紀錄格式不正確，或紀錄識別碼重複。原資料未變更。');
+      if(row.cycle !== undefined && row.cycle !== 'weekly' && row.cycle !== 'monthly') throw new Error('結晶週期格式不正確。原資料未變更。');
+      if(row.pricing !== undefined && row.pricing !== 'manual' && row.pricing !== 'catalog') throw new Error('結晶計價格式不正確。原資料未變更。');
+      if(row.partySize !== undefined && (!Number.isInteger(row.partySize) || row.partySize<1 || row.partySize>6)) throw new Error('隊伍人數格式不正確。原資料未變更。');
+      if(row.basePrice !== undefined && !number(row.basePrice)) throw new Error('結晶原價格式不正確。原資料未變更。');
       if(row.id !== undefined) crystalIds.add(row.id);
     }
     return input;
@@ -54,6 +59,8 @@
       }
       row.boss ||= '未分類';
       row.notes ||= '';
+      row.cycle = row.cycle === 'monthly' ? 'monthly' : 'weekly';
+      row.pricing ||= row.bossId ? 'catalog' : 'manual';
       if(!row.weekStart){
         const match = row.week.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
         if(match) row.weekStart = `${match[1]}-${match[2]}-${match[3]}`;

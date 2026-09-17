@@ -10,6 +10,7 @@
       "targetBoss": "困難史烏",
       "bestTime": "34:51",
       "notes": "示範資料，非實際角色",
+      "archived": false,
       "stats": {
         "主屬性": "42,300",
         "Boss 傷害": "387%",
@@ -58,7 +59,13 @@
       "characterId": "example-character-001",
       "character": "示範暗夜行者",
       "boss": "困難史烏",
-      "income": 30000000,
+      "bossId": "lotus-hard",
+      "cycle": "weekly",
+      "pricing": "catalog",
+      "partySize": 1,
+      "basePrice": 91000000,
+      "priceVersion": "TMS v282 · 2026-09-14",
+      "income": 91000000,
       "done": true,
       "notes": "示範資料"
     }

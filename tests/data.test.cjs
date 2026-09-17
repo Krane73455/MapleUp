@@ -55,6 +55,15 @@ test('crystal records preserve manual fields and reject duplicate ids',()=>{
   restored.crystalWeeks.push({...restored.crystalWeeks[0]});
   assert.throws(()=>core.normalize(restored),/重複/);
 });
+test('catalog metadata and archived characters survive backup normalization',()=>{
+  const n=core.normalize(seed);n.characters[0].archived=true;
+  Object.assign(n.crystalWeeks[0],{cycle:'weekly',pricing:'catalog',bossId:'lotus-hard',partySize:2,basePrice:91000000});
+  const restored=core.parseBackup(core.backup(n));
+  assert.equal(restored.characters[0].archived,true);
+  assert.equal(restored.crystalWeeks[0].bossId,'lotus-hard');
+  assert.equal(restored.crystalWeeks[0].partySize,2);
+  assert.equal(restored.crystalWeeks[0].income,n.crystalWeeks[0].income);
+});
 test('storage write failure keeps active data, destructive recovery precedes replacement',()=>{
   const values=new Map([['mapleup-v1',JSON.stringify(seed)]]);
   let fail=false;

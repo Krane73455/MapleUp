@@ -85,6 +85,10 @@ let currentView = "dashboard";
 let currentCharacterId = null;
 let characterTab = "overview";
 let selectedCrystalWeek = weekStartISO(new Date());
+let selectedCrystalMonth = localDate().slice(0,7);
+let selectedBossCharacterId = null;
+let characterFilter = 'all';
+let characterSearch = '';
 
 function savedApiKey(){
   try { return localStorage.getItem(NEXON_KEY) || ""; } catch { return ""; }
@@ -168,8 +172,10 @@ function weekLabel(startISO){
     : `${end.getFullYear()}/${String(end.getMonth()+1).padStart(2,'0')}/${String(end.getDate()).padStart(2,'0')}`;
   return `${first}–${last}`;
 }
-const crystalWeekKey = row => row.weekStart || `legacy:${row.week}`;
-const selectedCrystalRows = () => data.crystalWeeks.filter(row=>crystalWeekKey(row)===selectedCrystalWeek);
+const crystalCycle = row => row.cycle === 'monthly' ? 'monthly' : 'weekly';
+const crystalWeekKey = row => crystalCycle(row)==='weekly' ? (row.weekStart || `legacy:${row.week}`) : '';
+const selectedCrystalRows = () => data.crystalWeeks.filter(row=>crystalCycle(row)==='weekly' && crystalWeekKey(row)===selectedCrystalWeek);
+const activeCharacters = () => data.characters.filter(c=>!c.archived);
 function setNav(){
   document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === currentView));
 }
@@ -183,12 +189,12 @@ function render(){
 }
 function renderDashboard(){
   pageTitle.textContent = "強化總覽";
-  const chars = [...data.characters];
+  const chars = activeCharacters();
   const ranked = chars.filter(c => getStatus(c).score > 0).sort((a,b)=>priority(b)-priority(a));
   const stopped = chars.filter(c=>getStatus(c).score === 0);
   const untested = chars.filter(c=>getStatus(c).label === "待測");
   const currentWeek = weekStartISO(new Date());
-  const weekIncome = data.crystalWeeks.filter(x=>crystalWeekKey(x)===currentWeek && x.done).reduce((s,x)=>s+x.income,0);
+  const weekIncome = data.crystalWeeks.filter(x=>crystalCycle(x)==='weekly' && crystalWeekKey(x)===currentWeek && x.done).reduce((s,x)=>s+x.income,0);
 
   view.innerHTML = `
     <div class="grid metrics">
@@ -234,25 +240,49 @@ function renderDashboard(){
 }
 function renderCharacters(){
   pageTitle.textContent = "角色管理";
+  const search=characterSearch.trim().toLowerCase();
+  const counts={all:data.characters.filter(c=>!c.archived).length,stopped:0,invest:0,untested:0,archived:data.characters.filter(c=>c.archived).length};
+  for(const c of data.characters.filter(c=>!c.archived)){
+    const label=getStatus(c).label;
+    if(label==='停手')counts.stopped++;else if(label==='待強化')counts.invest++;else counts.untested++;
+  }
+  const rows=data.characters.filter(c=>{
+    if(characterFilter==='archived'){if(!c.archived)return false;}
+    else{
+      if(c.archived)return false;
+      const label=getStatus(c).label;
+      if(characterFilter==='stopped'&&label!=='停手')return false;
+      if(characterFilter==='invest'&&label!=='待強化')return false;
+      if(characterFilter==='untested'&&label!=='待測')return false;
+    }
+    return !search || [c.name,c.job,c.targetBoss].some(value=>String(value||'').toLowerCase().includes(search));
+  });
+  const filters=[['all','全部'],['stopped','停手'],['invest','待投資'],['untested','待測'],['archived','封存']];
   view.innerHTML = `
-    <div class="panel">
-      <div class="panel-head"><div><h3>所有角色</h3><p>點擊角色進入總覽、能力面板、裝備分析與戰力紀錄。</p></div></div>
-      <div class="characters-grid grid">
-        ${data.characters.map(c=>`
-        <article class="character-card" data-character="${esc(c.id)}">
-          <div class="character-top">
-            <div><h3>${esc(c.name)}</h3><span class="muted">${esc(c.job)} Lv.${c.level}</span></div>
-            <span class="badge ${getStatus(c).cls}">${getStatus(c).label}</span>
-          </div>
-          <div class="stat-pair">
-            <div class="mini-stat"><small>🏆 最高戰力</small><strong>${fmtPower(c.maxPower)}</strong></div>
-            <div class="mini-stat"><small>⏱️ 最佳時間</small><strong>${esc(c.bestTime || "未測")}</strong></div>
-          </div>
-          <small class="muted">${esc(c.targetBoss || "尚未設定 Boss")}</small>
-        </article>`).join("")}
-      </div>
+    <div class="character-toolbar">
+      <div class="filter-tabs">${filters.map(([key,label])=>`<button class="tab-btn ${characterFilter===key?'active':''}" data-character-filter="${key}">${label} <small>${counts[key]}</small></button>`).join('')}</div>
+      <input id="characterSearch" type="search" value="${esc(characterSearch)}" placeholder="搜尋角色、職業或 Boss" aria-label="搜尋角色、職業或 Boss" />
+    </div>
+    <div class="panel character-table-panel">
+      <div class="panel-head"><div><h3>分身名單 <span class="muted">${rows.length} 隻</span></h3><p>只有填入指定 Boss 且時間低於 30:00 才會判定停手。</p></div></div>
+      ${rows.length?`<div class="table-wrap"><table class="character-table"><thead><tr><th>角色／職業</th><th>指定 Boss</th><th>通關時間</th><th>目前戰力</th><th>判定</th><th>最近同步</th><th>操作</th></tr></thead><tbody>
+        ${rows.map(c=>`<tr class="${c.archived?'archived':''}">
+          <td data-label="角色／職業"><div class="identity">${c.nexon?.characterImage?`<img class="table-avatar" src="${esc(c.nexon.characterImage)}" alt="" />`:`<span class="avatar-letter">${esc(c.name.slice(0,1))}</span>`}<div><strong>${esc(c.name)}</strong><small>${esc(c.job)} · Lv.${c.level}</small></div></div></td>
+          <td data-label="指定 Boss">${esc(c.targetBoss||'—')}</td><td data-label="通關時間">${esc(c.bestTime||'—')}</td><td data-label="目前戰力">${fmtPower(c.currentPower)}</td>
+          <td data-label="判定"><span class="badge ${c.archived?'warn':getStatus(c).cls}">${c.archived?'封存':getStatus(c).label}</span></td><td data-label="最近同步">${esc(c.nexon?.syncedAt?formatSyncTime(c.nexon.syncedAt):'—')}</td>
+          <td data-label="操作"><div class="row-actions"><button class="ghost-btn character-open" data-id="${esc(c.id)}">查看</button><button class="ghost-btn character-edit" data-id="${esc(c.id)}">編輯</button><button class="ghost-btn character-archive" data-id="${esc(c.id)}">${c.archived?'啟用':'封存'}</button></div></td>
+        </tr>`).join('')}
+      </tbody></table></div>`:`<div class="empty">沒有符合條件的角色。</div>`}
     </div>`;
-  bindCharacterClicks();
+  document.querySelectorAll('[data-character-filter]').forEach(button=>button.onclick=()=>{characterFilter=button.dataset.characterFilter;renderCharacters();});
+  const searchInput=document.querySelector('#characterSearch');
+  searchInput.oninput=()=>{characterSearch=searchInput.value;renderCharacters();const next=document.querySelector('#characterSearch');next.focus();next.setSelectionRange(next.value.length,next.value.length);};
+  document.querySelectorAll('.character-open').forEach(button=>button.onclick=()=>{currentCharacterId=button.dataset.id;currentView='character';characterTab='overview';render();});
+  document.querySelectorAll('.character-edit').forEach(button=>button.onclick=()=>openCharacter(data.characters.find(c=>c.id===button.dataset.id)));
+  document.querySelectorAll('.character-archive').forEach(button=>button.onclick=()=>{
+    const next=structuredClone(data),c=next.characters.find(c=>c.id===button.dataset.id);if(!c)return;
+    c.archived=!c.archived;commitData(next);renderCharacters();notify(c.archived?'角色已封存；歷史與結晶紀錄均保留。':'角色已重新啟用。');
+  });
 }
 function renderCharacterDetail(){
   const c = data.characters.find(x=>x.id===currentCharacterId);
@@ -262,12 +292,13 @@ function renderCharacterDetail(){
     ["overview","📊 總覽"],["stats","📋 能力面板"],["equipment","🛡️ 裝備分析"],["power","📈 戰力紀錄"]
   ];
   view.innerHTML = `
-    <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色／更新戰力</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
+    <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色／更新戰力</button><button id="archiveCharacter" class="ghost-btn">${c.archived?'重新啟用':'封存角色'}</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
     <div class="tabs">${tabs.map(([k,l])=>`<button class="tab-btn ${characterTab===k?"active":""}" data-tab="${esc(k)}">${l}</button>`).join("")}</div>
     <div id="characterTab"></div>`;
   document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>{characterTab=b.dataset.tab;renderCharacterDetail()});
   document.querySelector('#editCharacter').onclick=()=>openCharacter(c);
   document.querySelector('#syncCharacter').onclick=event=>syncOneCharacter(c.id,event.currentTarget);
+  document.querySelector('#archiveCharacter').onclick=()=>{const next=structuredClone(data),row=next.characters.find(row=>row.id===c.id);row.archived=!row.archived;commitData(next);renderCharacterDetail();notify(row.archived?'角色已封存；歷史與結晶紀錄均保留。':'角色已重新啟用。');};
   document.querySelector('#deleteCharacter').onclick=()=>{
     if(!confirm('刪除「'+c.name+'」及其戰力紀錄？既有結晶收入會保留。刪除前會保存一份本機復原備份。')) return;
     try {
@@ -328,58 +359,75 @@ function powerChart(c){
 }
 function renderCrystals(){
   pageTitle.textContent = "結晶收入";
-  const currentWeek = weekStartISO(new Date());
-  const weekKeys = [...new Set([currentWeek,...data.crystalWeeks.map(crystalWeekKey)])].sort().reverse();
-  if(!weekKeys.includes(selectedCrystalWeek)) selectedCrystalWeek=currentWeek;
-  const rows = selectedCrystalRows();
-  const completed = rows.filter(x=>x.done);
-  const earned = completed.reduce((s,x)=>s+x.income,0);
-  const planned = rows.reduce((s,x)=>s+x.income,0);
-  const selectedMonth = selectedCrystalWeek.startsWith('legacy:') ? '' : selectedCrystalWeek.slice(0,7);
-  const monthIncome = selectedMonth ? data.crystalWeeks.filter(x=>x.done && x.weekStart?.startsWith(selectedMonth)).reduce((s,x)=>s+x.income,0) : 0;
-  const labelFor = key => key.startsWith('legacy:') ? key.slice(7) : weekLabel(key);
-  view.innerHTML = `<div class="grid metrics">
-    <div class="metric"><small>💰 本週已收入</small><strong>${fmtMoney(earned)}</strong></div>
-    <div class="metric"><small>📋 本週預估</small><strong>${fmtMoney(planned)}</strong></div>
-    <div class="metric"><small>✅ 完成紀錄</small><strong>${completed.length} / ${rows.length}</strong></div>
-    <div class="metric"><small>📅 當月已收入</small><strong>${fmtMoney(monthIncome)}</strong></div>
+  const characters=activeCharacters();
+  if(!characters.some(c=>c.id===selectedBossCharacterId)) selectedBossCharacterId=characters[0]?.id||null;
+  const weekRows=rowsForCrystalPeriod('weekly'),monthRows=rowsForCrystalPeriod('monthly');
+  const selectedCharacter=characters.find(c=>c.id===selectedBossCharacterId);
+  const selectedWeekRows=weekRows.filter(row=>row.characterId===selectedBossCharacterId);
+  const weeklyTotal=weekRows.reduce((sum,row)=>sum+row.income,0),monthlyTotal=weeklyTotal*4+monthRows.reduce((sum,row)=>sum+row.income,0);
+  const weekDone=weekRows.filter(row=>row.done).reduce((sum,row)=>sum+row.income,0);
+  const groupList=cycle=>[...new Set(BossCatalog.BOSSES.filter(b=>b.cycle===cycle).map(b=>b.group))];
+  const bossRow=(group,cycle)=>{
+    const variants=BossCatalog.BOSSES.filter(b=>b.group===group),record=bossRecordFor(group,cycle),shown=BossCatalog.getBoss(record?.bossId)||BossCatalog.matchBoss(record?.boss)||variants[0];
+    const locked=Boolean(record&&(record.done||record.pricing!=='catalog'));
+    const capped=!record&&cycle==='weekly'&&(selectedWeekRows.length>=12||weekRows.length>=90);
+    return `<div class="boss-ledger-row ${record?'selected':''}"><div class="boss-ledger-name"><strong>${esc(shown.name)}</strong>${record?.pricing==='manual'?'<small>手填金額</small>':''}</div><div class="difficulty-buttons">${variants.map(boss=>`<button class="difficulty-btn ${record?.bossId===boss.id?'picked':''}" data-boss-pick="${boss.id}" ${locked||capped||!selectedCharacter?'disabled':''}>${esc(boss.difficulty)}</button>`).join('')}</div><div>${record?.pricing==='catalog'?`<select class="party-select" data-party-record="${esc(record.id)}" ${record.done?'disabled':''}>${Array.from({length:6},(_,i)=>`<option value="${i+1}" ${(record.partySize||1)===i+1?'selected':''}>${i===0?'單打':`${i+1} 人`}</option>`).join('')}</select>`:'<span class="muted">—</span>'}</div><div class="boss-price">${record?record.income.toLocaleString('zh-TW'):'—'}</div><div class="boss-complete">${record?`<input class="crystal-done" data-crystal-id="${esc(record.id)}" type="checkbox" ${record.done?'checked':''} aria-label="${esc(record.boss)} 已通關" />`:'—'}</div></div>`;
+  };
+  const detailRows=[...selectedWeekRows,...monthRows.filter(row=>row.characterId===selectedBossCharacterId)];
+  view.innerHTML=`<div class="crystal-summary">
+    <div><small>每週預估收入</small><strong>${fmtMoney(weeklyTotal)}</strong></div><div><small>每月預估收入</small><strong>${fmtMoney(monthlyTotal)}</strong><span>4 週收入＋月王</span></div><div><small>本週已完成</small><strong>${fmtMoney(weekDone)}</strong></div><div class="quota"><strong>${weekRows.length}<small> / 90</small></strong><span>已選週結晶</span></div>
   </div>
-  <div class="panel">
-    <div class="panel-head crystal-head">
-      <div><h3>本週打王</h3><p>直接勾選完成；點編輯可調整 Boss、收入與備註。</p></div>
-      <div class="crystal-toolbar">
-        <label>週期<select id="crystalWeekSelect">${weekKeys.map(key=>`<option value="${esc(key)}" ${key===selectedCrystalWeek?'selected':''}>${esc(labelFor(key))}</option>`).join('')}</select></label>
-        <button id="addCrystal" class="primary-btn" ${data.characters.length?'':'disabled'}>＋ 新增 Boss 紀錄</button>
-      </div>
-    </div>
-    ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>完成</th><th>角色</th><th>Boss</th><th>收入</th><th>備註</th><th>操作</th></tr></thead><tbody>
-      ${rows.map(x=>`<tr>
-        <td><input class="crystal-done" data-crystal-id="${esc(x.id)}" type="checkbox" ${x.done?'checked':''} aria-label="${esc(x.character)} ${esc(x.boss)} 完成狀態" /></td>
-        <td>${esc(x.character)}</td><td>${esc(x.boss)}</td><td>${fmtMoney(x.income)}</td><td>${esc(x.notes || '—')}</td>
-        <td class="row-actions"><button class="ghost-btn crystal-edit" data-crystal-id="${esc(x.id)}">編輯</button><button class="danger-btn crystal-delete" data-crystal-id="${esc(x.id)}">刪除</button></td>
-      </tr>`).join('')}
-    </tbody></table></div>` : `<div class="empty">這個週期尚無 Boss 紀錄。${data.characters.length?'按「新增 Boss 紀錄」開始登記。':'請先新增角色。'}</div>`}
+  <div class="crystal-periods"><label>週王週期<input id="crystalWeekPicker" type="date" value="${esc(selectedCrystalWeek)}" /></label><label>月王月份<input id="crystalMonthPicker" type="month" value="${esc(selectedCrystalMonth)}" /></label><button id="addCrystal" class="ghost-btn" ${characters.length?'':'disabled'}>＋ 手動紀錄</button></div>
+  <div class="boss-workspace">
+    <aside class="boss-roster"><div class="boss-roster-head"><h3>角色列表</h3><button id="bossAddCharacter" class="icon-btn">＋</button></div>${characters.map(c=>{const own=weekRows.filter(row=>row.characterId===c.id);return `<button class="roster-character ${c.id===selectedBossCharacterId?'active':''}" data-boss-character="${esc(c.id)}"><span>${esc(c.name)}</span><strong>${fmtMoney(own.reduce((sum,row)=>sum+row.income,0))}</strong><small>${own.length?`${own.length} 隻週王`:'尚未選擇週王'}</small></button>`}).join('')||'<div class="empty">請先新增角色。</div>'}</aside>
+    <section class="panel boss-board"><div class="panel-head"><div><h3>${esc(selectedCharacter?.name||'Boss 清單')}</h3><p>點難度直接計算，再點一次取消。</p></div><span class="badge info">週王 ${selectedWeekRows.length} / 12</span></div>
+      <div class="boss-ledger-row boss-ledger-head"><span>Boss</span><span>難度</span><span>人數</span><span>楓幣</span><span>通關</span></div>
+      ${groupList('weekly').reverse().map(group=>bossRow(group,'weekly')).join('')}
+      <div class="monthly-divider"><strong>月王</strong><span>${esc(selectedCrystalMonth)}</span></div>${groupList('monthly').map(group=>bossRow(group,'monthly')).join('')}
+      <details class="crystal-details"><summary>日期與紀錄明細</summary>${detailRows.length?`<div class="table-wrap"><table><thead><tr><th>完成</th><th>Boss</th><th>週期</th><th>收入</th><th>備註</th><th>操作</th></tr></thead><tbody>${detailRows.map(row=>`<tr><td>${row.done?'✅':'⬜'}</td><td>${esc(row.boss)}</td><td>${esc(row.cycle==='monthly'?row.weekStart.slice(0,7):row.week)}</td><td>${row.income.toLocaleString('zh-TW')}</td><td>${esc(row.notes||'—')}</td><td><div class="row-actions"><button class="ghost-btn crystal-edit" data-crystal-id="${esc(row.id)}">編輯</button><button class="danger-btn crystal-delete" data-crystal-id="${esc(row.id)}">刪除</button></div></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">這個角色尚未選擇 Boss。</div>'}</details>
+      <details class="crystal-details"><summary>計算說明</summary><p class="muted">價格為網站規則粗估（僅供參考）。個人金額＝參考價格÷隊伍人數，小數捨去。每角色最多新增 12 隻週王，所有角色合計最多 90 顆週結晶；舊紀錄及手動金額不會被自動改價。</p></details>
+    </section>
   </div>`;
-  document.querySelector('#crystalWeekSelect').onchange=event=>{selectedCrystalWeek=event.target.value;renderCrystals();};
-  const addButton=document.querySelector('#addCrystal');
-  if(addButton) addButton.onclick=()=>openCrystal();
-  document.querySelectorAll('.crystal-done').forEach(input=>input.onchange=()=>{
-    try {
-      const next=structuredClone(data);
-      const row=next.crystalWeeks.find(x=>x.id===input.dataset.crystalId);
-      if(!row) throw new Error('找不到這筆結晶紀錄，請重新整理。');
-      row.done=input.checked;commitData(next);renderCrystals();notify(row.done?'已計入本週收入。':'已改為未完成，不計入本週收入。');
-    } catch(error){input.checked=!input.checked;notify(error.message);}
-  });
-  document.querySelectorAll('.crystal-edit').forEach(button=>button.onclick=()=>openCrystal(data.crystalWeeks.find(x=>x.id===button.dataset.crystalId)));
-  document.querySelectorAll('.crystal-delete').forEach(button=>button.onclick=()=>{
-    const row=data.crystalWeeks.find(x=>x.id===button.dataset.crystalId);
-    if(!row || !confirm(`刪除「${row.character}－${row.boss}」的結晶紀錄？刪除前會保存一份本機復原備份。`)) return;
-    try {
-      const next=structuredClone(data);next.crystalWeeks=next.crystalWeeks.filter(x=>x.id!==row.id);
-      commitData(next,{recovery:true});renderCrystals();notify('結晶紀錄已刪除。');
-    } catch(error){notify(error.message);}
-  });
+  document.querySelector('#crystalWeekPicker').onchange=event=>{const d=new Date(`${event.target.value}T00:00:00`);if(!Number.isNaN(d.getTime()))selectedCrystalWeek=weekStartISO(d);renderCrystals();};
+  document.querySelector('#crystalMonthPicker').onchange=event=>{if(/^\d{4}-\d{2}$/.test(event.target.value))selectedCrystalMonth=event.target.value;renderCrystals();};
+  document.querySelector('#addCrystal').onclick=()=>openCrystal();document.querySelector('#bossAddCharacter').onclick=()=>openCharacter();
+  document.querySelectorAll('[data-boss-character]').forEach(button=>button.onclick=()=>{selectedBossCharacterId=button.dataset.bossCharacter;renderCrystals();});
+  document.querySelectorAll('[data-boss-pick]').forEach(button=>button.onclick=()=>toggleCatalogBoss(button.dataset.bossPick));
+  document.querySelectorAll('[data-party-record]').forEach(select=>select.onchange=()=>updateCatalogParty(select.dataset.partyRecord,Number(select.value)));
+  document.querySelectorAll('.crystal-done').forEach(input=>input.onchange=()=>updateCrystalDone(input.dataset.crystalId,input.checked));
+  document.querySelectorAll('.crystal-edit').forEach(button=>button.onclick=()=>openCrystal(data.crystalWeeks.find(row=>row.id===button.dataset.crystalId)));
+  document.querySelectorAll('.crystal-delete').forEach(button=>button.onclick=()=>deleteCrystalRecord(button.dataset.crystalId));
+}
+
+function rowsForCrystalPeriod(cycle){
+  return data.crystalWeeks.filter(row=>crystalCycle(row)===cycle&&(cycle==='weekly'?crystalWeekKey(row)===selectedCrystalWeek:row.weekStart?.slice(0,7)===selectedCrystalMonth));
+}
+function bossRecordFor(group,cycle){
+  return rowsForCrystalPeriod(cycle).find(row=>row.characterId===selectedBossCharacterId&&BossCatalog.groupForRecord(row)===group);
+}
+function toggleCatalogBoss(bossId){
+  try{
+    const boss=BossCatalog.getBoss(bossId),record=bossRecordFor(boss.group,boss.cycle),periodRows=rowsForCrystalPeriod(boss.cycle),character=data.characters.find(c=>c.id===selectedBossCharacterId);
+    if(!boss||!character)throw new Error('請先選擇角色。');
+    if(record&&(record.done||record.pricing!=='catalog'))throw new Error('已通關或手填紀錄請到下方明細編輯。');
+    const next=structuredClone(data);
+    if(record?.bossId===boss.id){next.crystalWeeks=next.crystalWeeks.filter(row=>row.id!==record.id);commitData(next);renderCrystals();notify('已取消這個 Boss。');return;}
+    if(!record&&boss.cycle==='weekly'&&(periodRows.filter(row=>row.characterId===character.id).length>=12||periodRows.length>=90))throw new Error('已達週王上限：每角色 12、全部角色 90。');
+    const periodStart=boss.cycle==='weekly'?selectedCrystalWeek:`${selectedCrystalMonth}-01`;
+    const value={...(record||{}),id:record?.id||crypto.randomUUID(),characterId:character.id,character:character.name,weekStart:periodStart,week:boss.cycle==='weekly'?weekLabel(periodStart):`${selectedCrystalMonth} 月王`,done:false,notes:record?.notes||'',...BossCatalog.priceSnapshot(boss,record?.partySize||1)};
+    if(record)next.crystalWeeks[next.crystalWeeks.findIndex(row=>row.id===record.id)]=value;else next.crystalWeeks.push(value);
+    commitData(next);renderCrystals();notify(`${value.boss} 已加入，個人結晶已自動計算。`);
+  }catch(error){notify(error.message);}
+}
+function updateCatalogParty(recordId,partySize){
+  try{const next=structuredClone(data),row=next.crystalWeeks.find(row=>row.id===recordId),boss=BossCatalog.getBoss(row?.bossId);if(!row||!boss)throw new Error('找不到這筆自動計價紀錄。');Object.assign(row,BossCatalog.priceSnapshot(boss,partySize));commitData(next);renderCrystals();notify('隊伍人數與個人結晶已更新。');}catch(error){notify(error.message);}
+}
+function updateCrystalDone(recordId,done){
+  try{const next=structuredClone(data),row=next.crystalWeeks.find(row=>row.id===recordId);if(!row)throw new Error('找不到這筆結晶紀錄。');row.done=done;commitData(next);renderCrystals();notify(done?'已標記通關。':'已取消通關。');}catch(error){notify(error.message);}
+}
+function deleteCrystalRecord(recordId){
+  const row=data.crystalWeeks.find(row=>row.id===recordId);if(!row||!confirm(`刪除「${row.character}－${row.boss}」的結晶紀錄？刪除前會保存復原備份。`))return;
+  try{const next=structuredClone(data);next.crystalWeeks=next.crystalWeeks.filter(item=>item.id!==recordId);commitData(next,{recovery:true});renderCrystals();notify('結晶紀錄已刪除。');}catch(error){notify(error.message);}
 }
 function renderSettings(){
   pageTitle.textContent = "設定";
@@ -390,7 +438,7 @@ function renderSettings(){
     </div>
     <div class="panel"><div class="panel-head"><div><h3>🔄 NEXON API</h3><p>輸入一次後即可同步角色資料。</p></div></div>
       <label class="api-key-label">API Key<input id="nexonApiKey" type="password" autocomplete="off" placeholder="貼上 NEXON Open API Key" /></label>
-      <div class="api-actions"><button id="saveApiKey" class="primary-btn">儲存 Key</button><button id="clearApiKey" class="ghost-btn">清除 Key</button><button id="syncAllCharacters" class="ghost-btn" ${data.characters.length?'':'disabled'}>同步全部角色</button></div>
+      <div class="api-actions"><button id="saveApiKey" class="primary-btn">儲存 Key</button><button id="clearApiKey" class="ghost-btn">清除 Key</button><button id="syncAllCharacters" class="ghost-btn" ${activeCharacters().length?'':'disabled'}>同步全部角色</button></div>
       <div id="apiStatus" class="callout"><strong>${savedApiKey()?'已設定，可以同步':'尚未設定'}</strong><p class="muted">Key 只保存在這個瀏覽器，不會寫進 GitHub，也不會包含在 JSON 備份。</p></div>
       <p class="api-credit">Data based on NEXON Open API · <a href="https://openapi.nexon.com/" target="_blank" rel="noopener">申請／查看 API Key</a></p>
     </div>
@@ -479,7 +527,7 @@ async function syncOneCharacter(characterId,button){
 }
 async function syncAllCharacters(button){
   if(!savedApiKey()){notify('請先貼上並儲存 NEXON API Key。');return;}
-  const ids=data.characters.map(c=>c.id);let done=0;
+  const ids=activeCharacters().map(c=>c.id);let done=0;
   button.disabled=true;
   for(const id of ids){
     const character=data.characters.find(c=>c.id===id);
@@ -523,20 +571,22 @@ function openCharacter(c=null){
 }
 function openCrystal(row=null){
   if(storageProblem){notify(storageProblem);return;}
-  if(!row && !data.characters.length){notify('請先新增角色，再建立 Boss 紀錄。');return;}
+  const available=data.characters.filter(c=>!c.archived||c.id===row?.characterId);
+  if(!row && !available.length){notify('請先新增角色，再建立 Boss 紀錄。');return;}
   editingCrystalId=row?.id || null;crystalForm.reset();
   document.querySelector('#crystalFormError').hidden=true;
   document.querySelector('#crystalDialogTitle').textContent=row?'編輯結晶紀錄':'新增結晶紀錄';
   document.querySelector('#saveCrystalBtn').textContent=row?'儲存變更':'新增';
   const select=crystalForm.elements.namedItem('characterId');
-  select.innerHTML=data.characters.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  select.innerHTML=available.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
   const linked=row && data.characters.some(c=>c.id===row.characterId);
   if(row && !linked){
     const option=document.createElement('option');option.value='__legacy__';option.textContent=`${row.character}（舊紀錄）`;select.prepend(option);
   }
-  select.value=row ? (linked?row.characterId:'__legacy__') : data.characters[0]?.id;
+  select.value=row ? (linked?row.characterId:'__legacy__') : (selectedBossCharacterId||available[0]?.id);
+  crystalForm.elements.namedItem('cycle').value=row?.cycle==='monthly'?'monthly':'weekly';
   crystalForm.elements.namedItem('boss').value=row?.boss || '';
-  crystalForm.elements.namedItem('weekStart').value=row?.weekStart || (selectedCrystalWeek.startsWith('legacy:')?weekStartISO(new Date()):selectedCrystalWeek);
+  crystalForm.elements.namedItem('weekStart').value=row?.weekStart || selectedCrystalWeek;
   crystalForm.elements.namedItem('income').value=row?.income ?? 0;
   crystalForm.elements.namedItem('done').checked=row?.done || false;
   crystalForm.elements.namedItem('notes').value=row?.notes || '';
@@ -577,18 +627,19 @@ crystalForm.addEventListener('submit',event=>{
     if(!character && selectedId!=='__legacy__') throw new Error('請選擇有效角色。');
     if(selectedId==='__legacy__' && !original) throw new Error('找不到舊角色紀錄。');
     const weekStart=String(fd.get('weekStart'));
+    const cycle=String(fd.get('cycle'))==='monthly'?'monthly':'weekly';
     const income=Number(fd.get('income'));
     const boss=String(fd.get('boss')).trim();
     if(!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) throw new Error('請選擇週期起始日。');
     if(!boss) throw new Error('請填寫 Boss。');
     if(!Number.isSafeInteger(income) || income<0) throw new Error('收入必須是零以上的整數。');
     const row={
-      id:editingCrystalId || crypto.randomUUID(),weekStart,week:weekLabel(weekStart),
+      id:editingCrystalId || crypto.randomUUID(),weekStart,week:cycle==='monthly'?`${weekStart.slice(0,7)} 月王`:weekLabel(weekStart),cycle,pricing:'manual',
       characterId:character?.id ?? original?.characterId,character:character?.name ?? original.character,
       boss,income,done:fd.get('done')==='on',notes:String(fd.get('notes')).trim()
     };
     if(row.characterId===undefined) delete row.characterId;
-    const duplicate=data.crystalWeeks.some(existing=>existing.id!==editingCrystalId && existing.weekStart===row.weekStart &&
+    const duplicate=data.crystalWeeks.some(existing=>existing.id!==editingCrystalId && crystalCycle(existing)===cycle && (cycle==='monthly'?existing.weekStart?.slice(0,7)===weekStart.slice(0,7):existing.weekStart===row.weekStart) &&
       (row.characterId ? existing.characterId===row.characterId : existing.character===row.character) && existing.boss.trim()===row.boss);
     if(duplicate) throw new Error('這個週期已經有相同角色與 Boss 的紀錄，請直接編輯原紀錄。');
     const next=structuredClone(data);
@@ -597,7 +648,7 @@ crystalForm.addEventListener('submit',event=>{
       if(index<0) throw new Error('找不到這筆結晶紀錄，請重新整理。');
       next.crystalWeeks[index]=row;
     } else next.crystalWeeks.push(row);
-    commitData(next);selectedCrystalWeek=weekStart;crystalDialog.close();renderCrystals();notify(editingCrystalId?'結晶紀錄已更新。':'Boss 紀錄已新增。');
+    commitData(next);if(cycle==='monthly')selectedCrystalMonth=weekStart.slice(0,7);else selectedCrystalWeek=weekStart;selectedBossCharacterId=character?.id||selectedBossCharacterId;crystalDialog.close();renderCrystals();notify(editingCrystalId?'結晶紀錄已更新。':'Boss 紀錄已新增。');
   } catch(error){const el=document.querySelector('#crystalFormError');el.textContent=error.message;el.hidden=false;}
 });
 document.querySelector('#cancelImport').onclick=()=>document.querySelector('#importDialog').close();
