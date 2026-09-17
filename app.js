@@ -1,13 +1,6 @@
 
 const STORE_KEY = "mapleup-v1";
 const NEXON_KEY = "mapleup-nexon-api-key";
-const JOB_GROUPS = [
-  ['劍士',['英雄','聖騎士','黑騎士','聖魂劍士','米哈逸','狂狼勇士','惡魔殺手','惡魔復仇者','爆拳槍神','凱撒','神之子','阿戴爾','劍豪']],
-  ['法師',['火毒大魔導士','冰雷大魔導士','主教','烈焰巫師','龍魔導士','夜光','煉獄巫師','凱內西斯','伊利恩','菈菈','陰陽師','琳恩','幻獸師']],
-  ['弓箭手',['箭神','神射手','開拓者','破風使者','精靈遊俠','狂豹獵人','凱殷','蓮']],
-  ['盜賊',['夜使者','暗影神偷','影武者','暗夜行者','幻影俠盜','卡蒂娜','虎影','卡莉','傑諾']],
-  ['海盜',['拳霸','槍神','重砲指揮官','閃雷悍將','隱月','機甲戰神','天使破壞者','亞克','墨玄']]
-];
 
 const sampleData = {
   characters: [
@@ -123,10 +116,6 @@ const fmtPower = n => {
   return n.toLocaleString();
 };
 const fmtMoney = n => n ? `${(n/100000000).toFixed(2)}億` : "0";
-function jobOptions(selected=''){
-  const known=JOB_GROUPS.some(([,jobs])=>jobs.includes(selected));
-  return `<option value="">選擇職業</option>${!known&&selected?`<optgroup label="目前職業"><option value="${esc(selected)}" selected>${esc(selected)}</option></optgroup>`:''}${JOB_GROUPS.map(([group,jobs])=>`<optgroup label="# ${group}">${jobs.map(job=>`<option value="${esc(job)}" ${job===selected?'selected':''}>${esc(job)}</option>`).join('')}</optgroup>`).join('')}`;
-}
 const timeToSeconds = MapleData.seconds;
 function getStatus(c){
   const sec = timeToSeconds(c.bestTime);
@@ -300,7 +289,7 @@ function renderCharacterDetail(){
   if(!c){ currentView="characters"; return render(); }
   pageTitle.textContent = c.name;
   const tabs = [
-    ["overview","📊 總覽"],["stats","📋 能力面板"],["equipment","🛡️ 裝備分析"],["power","📈 戰力紀錄"]
+    ["overview","📊 總覽"],["stats","📋 能力面板"],["equipment","🛡️ 裝備資訊"],["power","📈 戰力紀錄"]
   ];
   view.innerHTML = `
     <div class="character-actions"><button id="syncCharacter" class="primary-btn">🔄 NEXON 同步</button><button id="editCharacter" class="ghost-btn">編輯角色</button><button id="archiveCharacter" class="ghost-btn">${c.archived?'重新啟用':'封存角色'}</button><button id="deleteCharacter" class="danger-btn">刪除角色</button></div>
@@ -349,9 +338,10 @@ function renderCharacterTab(c){
   }
   if(characterTab==="equipment"){
     const apiEquipment=c.nexon?.equipment || [];
-    host.innerHTML = `${apiEquipment.length?`<div class="panel"><div class="panel-head"><div><h3>🔄 NEXON 目前裝備</h3><p>API 同步結果只供檢視，不會改寫下方的手動分析。</p></div></div><div class="equipment-list">${apiEquipment.map(item=>`<div class="equipment-item"><div><strong>${esc(item.slot || '裝備')}</strong><div class="muted">${esc(item.name || '—')}</div></div><span>${esc(equipmentLabel(item))}</span></div>`).join('')}</div></div>`:''}<div class="panel"><div class="panel-head"><div><h3>🛡️ 手動裝備分析</h3><p>這裡處理你自己的強化優先順序。</p></div></div>
-      ${c.equipment?.length ? `<div class="equipment-list">${c.equipment.map(e=>`<div class="equipment-item"><div><strong>${esc(e.slot)}</strong><div class="muted">${esc(e.note)}</div></div><span>${esc(e.grade)}</span></div>`).join("")}</div>` : `<div class="empty">尚未建立裝備分析資料。</div>`}
-    </div>`;
+    const starred=apiEquipment.filter(item=>Number(item.starforce)>0).length;
+    const legendary=apiEquipment.filter(item=>String(item.potentialGrade).includes('傳說')).length;
+    const additional=apiEquipment.filter(item=>item.additionalPotentialGrade).length;
+    host.innerHTML = apiEquipment.length?`<div class="grid metrics equipment-metrics"><div class="metric"><small>已同步裝備</small><strong>${apiEquipment.length}</strong></div><div class="metric"><small>有星力</small><strong>${starred}</strong></div><div class="metric"><small>傳說潛能</small><strong>${legendary}</strong></div><div class="metric"><small>有附加潛能</small><strong>${additional}</strong></div></div><div class="panel"><div class="panel-head"><div><h3>🛡️ NEXON 目前裝備</h3><p>${esc(formatSyncTime(c.nexon.syncedAt))} 同步；顯示星力、潛能與附加潛能等級。</p></div></div><div class="equipment-list">${apiEquipment.map(item=>`<div class="equipment-item"><div><strong>${esc(item.slot || '裝備')}</strong><div class="muted">${esc(item.name || '—')}</div></div><span>${esc(equipmentLabel(item))}</span></div>`).join('')}</div></div>`:`<div class="panel"><div class="panel-head"><div><h3>🛡️ NEXON 裝備資訊</h3><p>同步角色後會自動顯示目前裝備。</p></div></div><div class="empty">尚未同步裝備資料，請按上方「NEXON 同步」。</div></div>`;
   }
   if(characterTab==="power"){
     host.innerHTML = `<div class="panel"><div class="panel-head"><div><h3>📈 戰力紀錄</h3><p>目前戰力與最高戰力分開保存；NEXON 同步若有變動會新增紀錄。</p></div></div>
@@ -569,10 +559,11 @@ function openCharacter(c=null){
   editingId=c?.id || null;form.reset();
   document.querySelector('#formError').hidden=true;
   document.querySelector('#nexonQuickAdd').hidden=Boolean(c);
+  document.querySelector('#characterEditFields').hidden=!c;
   document.querySelector('#characterDialogTitle').textContent=c?'編輯角色':'新增角色';
-  document.querySelector('#saveCharacterBtn').textContent=c?'儲存變更':'新增';
-  form.elements.namedItem('job').innerHTML=jobOptions(c?.job||'');
-  for(const name of ['name','job','targetBoss','bestTime','notes']){
+  document.querySelector('#saveCharacterBtn').hidden=!c;
+  document.querySelector('#saveCharacterBtn').textContent='儲存變更';
+  for(const name of ['name','targetBoss','bestTime','notes']){
     if(c) form.elements.namedItem(name).value=c[name];
   }
   dialog.showModal();
@@ -626,22 +617,17 @@ form.addEventListener('submit',event=>{
   event.preventDefault();
   try {
     const fd=new FormData(form);
-    const fields={name:String(fd.get('name')).trim(),job:String(fd.get('job')).trim(),targetBoss:String(fd.get('targetBoss')).trim(),bestTime:String(fd.get('bestTime')).trim(),notes:String(fd.get('notes')).trim()};
-    if(!fields.name || !fields.job) throw new Error('請填寫角色名稱與職業。');
+    if(!editingId) throw new Error('新增角色請輸入角色名稱後使用 NEXON API 匯入。');
+    const fields={name:String(fd.get('name')).trim(),targetBoss:String(fd.get('targetBoss')).trim(),bestTime:String(fd.get('bestTime')).trim(),notes:String(fd.get('notes')).trim()};
+    if(!fields.name) throw new Error('請填寫角色名稱。');
     if(fields.bestTime && timeToSeconds(fields.bestTime)===null) throw new Error('請填寫有效時間，例如 28:42；秒數為 00–59，總時間須大於零。');
-    let next;
-    if(editingId){
-      const original=data.characters.find(c=>c.id===editingId);
-      if(original && original.targetBoss!==fields.targetBoss && fields.bestTime && !confirm('指定 Boss 已變更。確認 '+fields.bestTime+' 是新 Boss 的通關時間？')) return;
-      next=MapleData.edit(data,editingId,fields,localDate());
-    } else {
-      next=structuredClone(data);
-      next.characters.push({id:crypto.randomUUID(),...fields,level:1,currentPower:0,maxPower:0,stats:{'主屬性':'-','Boss 傷害':'-','無視防禦':'-','ARC':'-','AUT':'-'},equipment:[],powerHistory:[]});
-    }
+    const original=data.characters.find(c=>c.id===editingId);
+    if(original && original.targetBoss!==fields.targetBoss && fields.bestTime && !confirm('指定 Boss 已變更。確認 '+fields.bestTime+' 是新 Boss 的通關時間？')) return;
+    const next=MapleData.edit(data,editingId,fields,localDate());
     commitData(next);
     dialog.close();
-    if(editingId){currentCharacterId=editingId;currentView='character';}else{currentView='characters';}
-    render();notify(editingId?'角色設定已更新；等級與戰力仍由 NEXON API 同步。':'角色已新增；同步 NEXON API 後會取得等級與戰力。');
+    currentCharacterId=editingId;currentView='character';
+    render();notify('角色設定已更新；職業、等級與戰力仍由 NEXON API 同步。');
   } catch(error){const el=document.querySelector('#formError');el.textContent=error.message;el.hidden=false;}
 });
 crystalForm.addEventListener('submit',event=>{

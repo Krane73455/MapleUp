@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#111827" />
   <title>MapleUp</title>
-  <link rel="stylesheet" href="./styles.css?v=0.6.0" />
+  <link rel="stylesheet" href="./styles.css?v=0.7.0" />
 </head>
 <body>
   <div class="app-shell">
@@ -62,11 +62,12 @@
         <button id="importCharacterBtn" type="button" class="primary-btn">從 NEXON 匯入</button>
       </div>
       <label>角色名稱<input name="name" required placeholder="例如：暗夜行者" /></label>
-      <label>職業<select name="job" required></select></label>
-      <label>指定 Boss<input name="targetBoss" placeholder="例如：困難史烏" /></label>
-      <label>最佳通關時間（mm:ss）<input name="bestTime" placeholder="例如：28:42" pattern="[0-9]+:[0-5][0-9]" /></label>
-      <label>備註<textarea name="notes" rows="3" placeholder="例如：等活動再強化"></textarea></label>
-      <p class="muted">等級與目前戰力只由 NEXON API 同步，不在這裡手動修改。更換 Boss 後請重新填寫通關時間。</p>
+      <div id="characterEditFields" class="character-edit-fields">
+        <label>指定 Boss<input name="targetBoss" placeholder="例如：困難史烏" /></label>
+        <label>最佳通關時間（mm:ss）<input name="bestTime" placeholder="例如：28:42" pattern="[0-9]+:[0-5][0-9]" /></label>
+        <label>備註<textarea name="notes" rows="3" placeholder="例如：等活動再強化"></textarea></label>
+        <p class="muted">職業、等級與目前戰力只由 NEXON API 同步。更換 Boss 後請重新填寫通關時間。</p>
+      </div>
       <p id="formError" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" data-close-character class="ghost-btn">取消</button>
@@ -112,9 +113,9 @@
       </div>
     </div>
   </dialog>
-  <script src="./core.js?v=0.6.0"></script>
-  <script src="./boss-catalog.js?v=0.6.0"></script>
-  <script src="./nexon.js?v=0.6.0"></script>
-  <script src="./app.js?v=0.6.0"></script>
+  <script src="./core.js?v=0.7.0"></script>
+  <script src="./boss-catalog.js?v=0.7.0"></script>
+  <script src="./nexon.js?v=0.7.0"></script>
+  <script src="./app.js?v=0.7.0"></script>
 </body>
 </html>
